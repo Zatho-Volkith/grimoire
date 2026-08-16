@@ -1,0 +1,399 @@
+-- Grimoire.sq
+-- SQLDelight schema sketch — core tables
+--
+-- Conventions used throughout:
+--   * id           TEXT, UUIDv7 generated on-device (time-sortable, collision-free across devices)
+--   * created_at / updated_at  INTEGER, epoch millis
+--   * deleted_at   INTEGER NULL — soft delete. Never DELETE a row that may have synced.
+--   * attributes   TEXT holding JSON, driven by the entity's template
+--
+-- In a real project split this into one .sq file per table. Kept together here for review.
+
+
+
+-- ---------------------------------------------------------------------------
+-- WORLD — top-level container. A fandom, or an original universe.
+-- ---------------------------------------------------------------------------
+CREATE TABLE world (
+    id            TEXT    NOT NULL PRIMARY KEY,
+    name          TEXT    NOT NULL,
+    summary       TEXT,
+    -- 'fandom' | 'original' | 'mixed'
+    kind          TEXT    NOT NULL DEFAULT 'original',
+    -- JSON: calendar definitions, eras, custom settings
+    settings      TEXT    NOT NULL DEFAULT '{}',
+    created_at    INTEGER NOT NULL,
+    updated_at    INTEGER NOT NULL,
+    deleted_at    INTEGER
+);
+
+
+-- ---------------------------------------------------------------------------
+-- SOURCE — where a piece of canon came from.
+-- This is the table that lets fanfic and original writers share one model.
+-- ---------------------------------------------------------------------------
+CREATE TABLE source (
+    id            TEXT    NOT NULL PRIMARY KEY,
+    world_id      TEXT    NOT NULL,
+    -- 'user_authored' | 'fandom_wiki' | 'ao3_work' | 'imported_file'
+    kind          TEXT    NOT NULL,
+    label         TEXT    NOT NULL,
+
+    -- Remote provenance. All NULL for user_authored.
+    remote_url    TEXT,
+    remote_id     TEXT,           -- wiki page id, AO3 work id, etc.
+    etag          TEXT,           -- for conditional refetch
+    revision      TEXT,           -- wiki revision at time of fetch
+    fetched_at    INTEGER,        -- NULL = never fetched
+    -- Raw payload as fetched, kept verbatim so a refresh can diff against it
+    cached_payload TEXT,
+
+    created_at    INTEGER NOT NULL,
+    updated_at    INTEGER NOT NULL,
+    deleted_at    INTEGER,
+    FOREIGN KEY (world_id) REFERENCES world(id)
+);
+
+CREATE INDEX source_world_idx ON source(world_id);
+CREATE INDEX source_remote_idx ON source(kind, remote_id);
+
+
+-- ---------------------------------------------------------------------------
+-- TEMPLATE — user-definable field sets. A "Character" template declares which
+-- attributes a character entity gets. Ships with defaults, fully editable.
+-- ---------------------------------------------------------------------------
+CREATE TABLE template (
+    id            TEXT    NOT NULL PRIMARY KEY,
+    world_id      TEXT,           -- NULL = global/built-in template
+    entity_type   TEXT    NOT NULL,   -- 'character' | 'location' | 'faction' | ...
+    name          TEXT    NOT NULL,
+    -- JSON array of field descriptors:
+    -- [{ "key":"age", "label":"Age", "type":"text", "group":"Basics", "order":1 }, ...]
+    fields        TEXT    NOT NULL DEFAULT '[]',
+    is_builtin    INTEGER NOT NULL DEFAULT 0,
+    created_at    INTEGER NOT NULL,
+    updated_at    INTEGER NOT NULL,
+    deleted_at    INTEGER,
+    FOREIGN KEY (world_id) REFERENCES world(id)
+);
+
+CREATE INDEX template_world_type_idx ON template(world_id, entity_type);
+
+
+-- ---------------------------------------------------------------------------
+-- ENTITY — characters, locations, factions, items, concepts, magic systems.
+-- Hybrid storage: hot fields are real columns, template-driven fields are JSON.
+-- ---------------------------------------------------------------------------
+CREATE TABLE entity (
+    id            TEXT    NOT NULL PRIMARY KEY,
+    world_id      TEXT    NOT NULL,
+    source_id     TEXT    NOT NULL,
+    template_id   TEXT,
+    -- 'character' | 'location' | 'faction' | 'item' | 'concept' | 'system'
+    type          TEXT    NOT NULL,
+
+    name          TEXT    NOT NULL,
+    aliases       TEXT    NOT NULL DEFAULT '[]',   -- JSON array
+    summary       TEXT,
+    body          TEXT,                            -- long-form notes, markdown
+    image_path    TEXT,                            -- relative to project dir
+    color         TEXT,                            -- for graph/timeline display
+
+    -- Template-driven fields: { "age": "27", "affiliation": "..." }
+    attributes    TEXT    NOT NULL DEFAULT '{}',
+
+    -- Canon layer. For wiki-sourced entities this holds the fetched values so a
+    -- refresh can update canon without clobbering the user's own edits above.
+    canon_snapshot TEXT,
+
+    created_at    INTEGER NOT NULL,
+    updated_at    INTEGER NOT NULL,
+    deleted_at    INTEGER,
+    FOREIGN KEY (world_id)    REFERENCES world(id),
+    FOREIGN KEY (source_id)   REFERENCES source(id),
+    FOREIGN KEY (template_id) REFERENCES template(id)
+);
+
+CREATE INDEX entity_world_type_idx ON entity(world_id, type);
+CREATE INDEX entity_source_idx     ON entity(source_id);
+CREATE INDEX entity_name_idx       ON entity(world_id, name);
+
+
+-- Full-text search over entities. Keep in sync via triggers.
+CREATE VIRTUAL TABLE entity_fts USING fts5(
+    name, aliases, summary, body,
+    content = 'entity',
+    content_rowid = 'rowid'
+);
+
+
+-- ---------------------------------------------------------------------------
+-- RELATIONSHIP — typed, directional edge with an inverse label.
+-- Stored once; presented from both ends.
+-- ---------------------------------------------------------------------------
+CREATE TABLE relationship (
+    id            TEXT    NOT NULL PRIMARY KEY,
+    world_id      TEXT    NOT NULL,
+    from_entity   TEXT    NOT NULL,
+    to_entity     TEXT    NOT NULL,
+    -- 'member_of', 'parent_of', 'located_in', 'rival_of', ...
+    kind          TEXT    NOT NULL,
+    label         TEXT,           -- override for display, e.g. "estranged sister"
+    inverse_label TEXT,           -- what the other end sees
+    notes         TEXT,
+    -- Optional temporal bounds — relationships change over a story
+    starts_event  TEXT,
+    ends_event    TEXT,
+    created_at    INTEGER NOT NULL,
+    updated_at    INTEGER NOT NULL,
+    deleted_at    INTEGER,
+    FOREIGN KEY (world_id)     REFERENCES world(id),
+    FOREIGN KEY (from_entity)  REFERENCES entity(id),
+    FOREIGN KEY (to_entity)    REFERENCES entity(id),
+    FOREIGN KEY (starts_event) REFERENCES timeline_event(id),
+    FOREIGN KEY (ends_event)   REFERENCES timeline_event(id)
+);
+
+CREATE INDEX rel_from_idx ON relationship(from_entity);
+CREATE INDEX rel_to_idx   ON relationship(to_entity);
+
+
+-- ---------------------------------------------------------------------------
+-- TIMELINE — supports multiple calendars per world via `calendar_key`.
+-- `sort_position` is the canonical ordering; `display_date` is what the user typed.
+-- ---------------------------------------------------------------------------
+CREATE TABLE timeline_event (
+    id            TEXT    NOT NULL PRIMARY KEY,
+    world_id      TEXT    NOT NULL,
+    calendar_key  TEXT    NOT NULL DEFAULT 'default',
+    title         TEXT    NOT NULL,
+    description   TEXT,
+    display_date  TEXT,           -- "Third Age, 1419" — free text
+    sort_position INTEGER NOT NULL,
+    duration      INTEGER,        -- NULL = point event
+    era           TEXT,
+    created_at    INTEGER NOT NULL,
+    updated_at    INTEGER NOT NULL,
+    deleted_at    INTEGER,
+    FOREIGN KEY (world_id) REFERENCES world(id)
+);
+
+CREATE INDEX event_world_order_idx ON timeline_event(world_id, calendar_key, sort_position);
+
+
+CREATE TABLE event_participant (
+    event_id      TEXT    NOT NULL,
+    entity_id     TEXT    NOT NULL,
+    role          TEXT,
+    PRIMARY KEY (event_id, entity_id),
+    FOREIGN KEY (event_id)  REFERENCES timeline_event(id),
+    FOREIGN KEY (entity_id) REFERENCES entity(id)
+);
+
+
+-- ---------------------------------------------------------------------------
+-- WORK — a story. Fanfic mirrors an AO3 work; original is a local manuscript.
+-- ---------------------------------------------------------------------------
+CREATE TABLE work (
+    id            TEXT    NOT NULL PRIMARY KEY,
+    world_id      TEXT    NOT NULL,
+    title         TEXT    NOT NULL,
+    summary       TEXT,
+    -- 'fanfic' | 'original'
+    kind          TEXT    NOT NULL DEFAULT 'original',
+    status        TEXT    NOT NULL DEFAULT 'draft',
+
+    -- AO3 mirror fields. All NULL until the API layer exists.
+    ao3_work_id   TEXT,
+    ao3_url       TEXT,
+    ao3_tags      TEXT,           -- JSON array
+    ao3_fandoms   TEXT,           -- JSON array
+    ao3_synced_at INTEGER,
+
+    created_at    INTEGER NOT NULL,
+    updated_at    INTEGER NOT NULL,
+    deleted_at    INTEGER,
+    FOREIGN KEY (world_id) REFERENCES world(id)
+);
+
+CREATE INDEX work_world_idx ON work(world_id);
+
+
+CREATE TABLE chapter (
+    id            TEXT    NOT NULL PRIMARY KEY,
+    work_id       TEXT    NOT NULL,
+    title         TEXT,
+    body          TEXT    NOT NULL DEFAULT '',
+    sort_position INTEGER NOT NULL,
+    word_count    INTEGER NOT NULL DEFAULT 0,
+    created_at    INTEGER NOT NULL,
+    updated_at    INTEGER NOT NULL,
+    deleted_at    INTEGER,
+    FOREIGN KEY (work_id) REFERENCES work(id)
+);
+
+CREATE INDEX chapter_work_order_idx ON chapter(work_id, sort_position);
+
+
+-- Which entities appear where. Powers "show me every scene Kaede is in".
+CREATE TABLE entity_appearance (
+    entity_id     TEXT    NOT NULL,
+    chapter_id    TEXT    NOT NULL,
+    note          TEXT,
+    PRIMARY KEY (entity_id, chapter_id),
+    FOREIGN KEY (entity_id)  REFERENCES entity(id),
+    FOREIGN KEY (chapter_id) REFERENCES chapter(id)
+);
+
+
+-- ---------------------------------------------------------------------------
+-- VARIANT — the differentiator. An override of a canon entity's attributes,
+-- scoped to a work or a named continuity. "In my fic, she never left the village."
+-- Same merge mechanism as canon_snapshot, which is why it's worth building once.
+-- ---------------------------------------------------------------------------
+CREATE TABLE variant (
+    id            TEXT    NOT NULL PRIMARY KEY,
+    entity_id     TEXT    NOT NULL,
+    -- Scope: exactly one of these should be set
+    work_id       TEXT,
+    continuity_key TEXT,          -- free-form: "canon-divergent AU", "s3 rewrite"
+
+    name_override    TEXT,
+    summary_override TEXT,
+    body_override    TEXT,
+    -- JSON patch over entity.attributes — only the changed keys
+    attribute_patch  TEXT NOT NULL DEFAULT '{}',
+    notes            TEXT,
+
+    created_at    INTEGER NOT NULL,
+    updated_at    INTEGER NOT NULL,
+    deleted_at    INTEGER,
+    FOREIGN KEY (entity_id) REFERENCES entity(id),
+    FOREIGN KEY (work_id)   REFERENCES work(id)
+);
+
+CREATE INDEX variant_entity_idx ON variant(entity_id);
+CREATE INDEX variant_work_idx   ON variant(work_id);
+
+
+-- ---------------------------------------------------------------------------
+-- SYNC_QUEUE — pending outbound work that drains when a connection appears.
+-- Nothing uses this on day one. Write it now; retrofitting is painful.
+-- ---------------------------------------------------------------------------
+CREATE TABLE sync_queue (
+    id            TEXT    NOT NULL PRIMARY KEY,
+    -- 'wiki_refresh' | 'ao3_fetch' | 'ao3_push'
+    operation     TEXT    NOT NULL,
+    target_table  TEXT    NOT NULL,
+    target_id     TEXT    NOT NULL,
+    payload       TEXT,
+    attempts      INTEGER NOT NULL DEFAULT 0,
+    last_error    TEXT,
+    next_retry_at INTEGER,
+    created_at    INTEGER NOT NULL
+);
+
+CREATE INDEX sync_pending_idx ON sync_queue(next_retry_at);
+
+
+-- ---------------------------------------------------------------------------
+-- QUERIES
+-- ---------------------------------------------------------------------------
+
+selectWorlds:
+SELECT * FROM world
+WHERE deleted_at IS NULL
+ORDER BY updated_at DESC;
+
+insertWorld:
+INSERT INTO world (id, name, summary, kind, settings, created_at, updated_at)
+VALUES (?, ?, ?, ?, ?, ?, ?);
+
+
+entitiesByType:
+SELECT * FROM entity
+WHERE world_id = ? AND type = ? AND deleted_at IS NULL
+ORDER BY name;
+
+entityById:
+SELECT * FROM entity WHERE id = ?;
+
+searchEntities:
+SELECT e.* FROM entity e
+JOIN entity_fts f ON f.rowid = e.rowid
+WHERE entity_fts MATCH ? AND e.world_id = ? AND e.deleted_at IS NULL
+ORDER BY rank
+LIMIT 50;
+
+upsertEntity:
+INSERT INTO entity (
+    id, world_id, source_id, template_id, type,
+    name, aliases, summary, body, image_path, color,
+    attributes, canon_snapshot, created_at, updated_at
+) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+ON CONFLICT(id) DO UPDATE SET
+    name        = excluded.name,
+    aliases     = excluded.aliases,
+    summary     = excluded.summary,
+    body        = excluded.body,
+    image_path  = excluded.image_path,
+    color       = excluded.color,
+    attributes  = excluded.attributes,
+    template_id = excluded.template_id,
+    updated_at  = excluded.updated_at;
+
+softDeleteEntity:
+UPDATE entity SET deleted_at = ?, updated_at = ? WHERE id = ?;
+
+
+-- Both directions of an entity's relationships in one result set.
+relationshipsFor:
+SELECT r.id, r.kind, r.notes,
+       e.id AS other_id, e.name AS other_name, e.type AS other_type,
+       r.label AS shown_label, 'outgoing' AS direction
+FROM relationship r
+JOIN entity e ON e.id = r.to_entity
+WHERE r.from_entity = ? AND r.deleted_at IS NULL AND e.deleted_at IS NULL
+UNION ALL
+SELECT r.id, r.kind, r.notes,
+       e.id, e.name, e.type,
+       r.inverse_label, 'incoming'
+FROM relationship r
+JOIN entity e ON e.id = r.from_entity
+WHERE r.to_entity = ? AND r.deleted_at IS NULL AND e.deleted_at IS NULL;
+
+
+-- Resolve an entity as it exists inside a specific work.
+-- Merge entity.attributes with variant.attribute_patch in Kotlin — SQLite's
+-- json_patch() exists but keeping the merge in code makes it testable.
+entityWithVariant:
+SELECT e.*, v.name_override, v.summary_override, v.body_override, v.attribute_patch
+FROM entity e
+LEFT JOIN variant v
+       ON v.entity_id = e.id AND v.work_id = ? AND v.deleted_at IS NULL
+WHERE e.id = ?;
+
+
+timelineForWorld:
+SELECT * FROM timeline_event
+WHERE world_id = ? AND calendar_key = ? AND deleted_at IS NULL
+ORDER BY sort_position;
+
+
+staleWikiSources:
+SELECT * FROM source
+WHERE kind = 'fandom_wiki'
+  AND deleted_at IS NULL
+  AND (fetched_at IS NULL OR fetched_at < ?)
+ORDER BY fetched_at ASC;
+
+
+enqueueSync:
+INSERT INTO sync_queue (id, operation, target_table, target_id, payload, created_at)
+VALUES (?, ?, ?, ?, ?, ?);
+
+nextSyncBatch:
+SELECT * FROM sync_queue
+WHERE next_retry_at IS NULL OR next_retry_at <= ?
+ORDER BY created_at
+LIMIT ?;
