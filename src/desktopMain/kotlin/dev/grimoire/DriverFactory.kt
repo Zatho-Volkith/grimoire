@@ -13,8 +13,11 @@ object DriverFactory {
     /** Opens (creating and migrating if needed) the SQLite file at [file]. */
     fun create(file: Path = appDataDir().resolve("grimoire.db")): SqlDriver {
         file.parent.createDirectories()
-        // foreign_keys is a per-connection pragma, so it must be set on the driver, not in the schema.
-        val props = Properties().apply { setProperty("foreign_keys", "true") }
+        // Per-connection pragmas belong here, not in the schema (Schema.create runs once, ever).
+        val props = Properties().apply {
+            setProperty("foreign_keys", "true")
+            setProperty("journal_mode", "WAL")
+        }
         return JdbcSqliteDriver("jdbc:sqlite:${file.absolutePathString()}", props, GrimoireDatabase.Schema)
     }
 

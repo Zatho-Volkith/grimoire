@@ -70,7 +70,7 @@ CREATE TABLE template (
     -- JSON array of field descriptors:
     -- [{ "key":"age", "label":"Age", "type":"text", "group":"Basics", "order":1 }, ...]
     fields        TEXT    NOT NULL DEFAULT '[]',
-    is_builtin    INTEGER NOT NULL DEFAULT 0,
+    is_builtin    INTEGER AS kotlin.Boolean NOT NULL DEFAULT 0,
     created_at    INTEGER NOT NULL,
     updated_at    INTEGER NOT NULL,
     deleted_at    INTEGER,
@@ -119,12 +119,40 @@ CREATE INDEX entity_source_idx     ON entity(source_id);
 CREATE INDEX entity_name_idx       ON entity(world_id, name);
 
 
--- Full-text search over entities. Keep in sync via triggers.
+-- Full-text search over entities. External-content table: it stores only the
+-- index and reads text back from `entity` by rowid. Kept in sync by the
+-- triggers below. Soft-deleted entities stay indexed; queries filter them out.
+--
+-- Rowid coupling: `entity` has a TEXT primary key, so its rowid is implicit.
+-- Current SQLite preserves rowids across VACUUM (verified on 3.53), but any
+-- migration that rebuilds the entity table (CREATE new / INSERT SELECT / DROP /
+-- RENAME) renumbers them — run FtsMaintenance.rebuild() after such migrations,
+-- imports, or restores.
 CREATE VIRTUAL TABLE entity_fts USING fts5(
     name, aliases, summary, body,
     content = 'entity',
     content_rowid = 'rowid'
 );
+
+CREATE TRIGGER entity_fts_ai AFTER INSERT ON entity BEGIN
+    INSERT INTO entity_fts(rowid, name, aliases, summary, body)
+    VALUES (new.rowid, new.name, new.aliases, new.summary, new.body);
+END;
+
+-- External-content FTS can't look up the old values itself, so deletes must
+-- hand them over via the special 'delete' command.
+CREATE TRIGGER entity_fts_ad AFTER DELETE ON entity BEGIN
+    INSERT INTO entity_fts(entity_fts, rowid, name, aliases, summary, body)
+    VALUES ('delete', old.rowid, old.name, old.aliases, old.summary, old.body);
+END;
+
+-- Only the indexed columns: touching updated_at/attributes doesn't churn the index.
+CREATE TRIGGER entity_fts_au AFTER UPDATE OF name, aliases, summary, body ON entity BEGIN
+    INSERT INTO entity_fts(entity_fts, rowid, name, aliases, summary, body)
+    VALUES ('delete', old.rowid, old.name, old.aliases, old.summary, old.body);
+    INSERT INTO entity_fts(rowid, name, aliases, summary, body)
+    VALUES (new.rowid, new.name, new.aliases, new.summary, new.body);
+END;
 
 
 -- ---------------------------------------------------------------------------
@@ -181,10 +209,15 @@ CREATE TABLE timeline_event (
 CREATE INDEX event_world_order_idx ON timeline_event(world_id, calendar_key, sort_position);
 
 
+-- Soft-deleted like everything else: multi-device sync needs the tombstone to
+-- propagate "no longer a participant".
 CREATE TABLE event_participant (
     event_id      TEXT    NOT NULL,
     entity_id     TEXT    NOT NULL,
     role          TEXT,
+    created_at    INTEGER NOT NULL,
+    updated_at    INTEGER NOT NULL,
+    deleted_at    INTEGER,
     PRIMARY KEY (event_id, entity_id),
     FOREIGN KEY (event_id)  REFERENCES timeline_event(id),
     FOREIGN KEY (entity_id) REFERENCES entity(id)
@@ -240,6 +273,9 @@ CREATE TABLE entity_appearance (
     entity_id     TEXT    NOT NULL,
     chapter_id    TEXT    NOT NULL,
     note          TEXT,
+    created_at    INTEGER NOT NULL,
+    updated_at    INTEGER NOT NULL,
+    deleted_at    INTEGER,
     PRIMARY KEY (entity_id, chapter_id),
     FOREIGN KEY (entity_id)  REFERENCES entity(id),
     FOREIGN KEY (chapter_id) REFERENCES chapter(id)
@@ -254,7 +290,7 @@ CREATE TABLE entity_appearance (
 CREATE TABLE variant (
     id            TEXT    NOT NULL PRIMARY KEY,
     entity_id     TEXT    NOT NULL,
-    -- Scope: exactly one of these should be set
+    -- Scope: exactly one of these is set (enforced by the CHECK below)
     work_id       TEXT,
     continuity_key TEXT,          -- free-form: "canon-divergent AU", "s3 rewrite"
 
@@ -269,11 +305,17 @@ CREATE TABLE variant (
     updated_at    INTEGER NOT NULL,
     deleted_at    INTEGER,
     FOREIGN KEY (entity_id) REFERENCES entity(id),
-    FOREIGN KEY (work_id)   REFERENCES work(id)
+    FOREIGN KEY (work_id)   REFERENCES work(id),
+    CHECK ((work_id IS NULL) <> (continuity_key IS NULL))
 );
 
 CREATE INDEX variant_entity_idx ON variant(entity_id);
 CREATE INDEX variant_work_idx   ON variant(work_id);
+
+-- At most one live variant per entity per scope, so entityWithVariant's LEFT JOIN
+-- can never fan out. Partial: soft-deleted history doesn't block a new variant.
+CREATE UNIQUE INDEX variant_work_uq ON variant(entity_id, work_id)        WHERE deleted_at IS NULL;
+CREATE UNIQUE INDEX variant_cont_uq ON variant(entity_id, continuity_key) WHERE deleted_at IS NULL;
 
 
 -- ---------------------------------------------------------------------------
