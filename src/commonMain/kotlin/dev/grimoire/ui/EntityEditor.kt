@@ -20,7 +20,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.unit.dp
 
 @Composable
-fun EntityEditor(state: EntityEditorState, onDelete: () -> Unit) {
+fun EntityEditor(state: EntityEditorState, onDelete: () -> Unit, onOpenEntity: (String) -> Unit) {
     if (!state.loaded) return
 
     Column(
@@ -57,5 +57,6 @@ fun EntityEditor(state: EntityEditorState, onDelete: () -> Unit) {
             label = { Text("Notes") }, minLines = 12,
             modifier = Modifier.fillMaxWidth().heightIn(min = 300.dp),
         )
+        RelationshipsPanel(state, onOpenEntity)
     }
 }

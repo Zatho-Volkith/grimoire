@@ -409,6 +409,13 @@ softDeleteEntity:
 UPDATE entity SET deleted_at = ?, updated_at = ? WHERE id = ?;
 
 
+insertRelationship:
+INSERT INTO relationship (id, world_id, from_entity, to_entity, kind, label, inverse_label, notes, created_at, updated_at)
+VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?);
+
+softDeleteRelationship:
+UPDATE relationship SET deleted_at = ?, updated_at = ? WHERE id = ?;
+
 -- Both directions of an entity's relationships in one result set.
 relationshipsFor:
 SELECT r.id, r.kind, r.notes,

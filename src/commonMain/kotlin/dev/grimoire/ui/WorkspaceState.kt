@@ -7,6 +7,7 @@ import androidx.compose.runtime.snapshotFlow
 import dev.grimoire.db.Entity
 import dev.grimoire.entity.EntityRepository
 import dev.grimoire.entity.EntityType
+import dev.grimoire.relationship.RelationshipRepository
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.FlowPreview
@@ -19,6 +20,7 @@ import kotlinx.coroutines.launch
 class WorkspaceState(
     val worldId: String,
     private val entities: EntityRepository,
+    private val relationships: RelationshipRepository,
     private val scope: CoroutineScope,
 ) {
     var type by mutableStateOf(EntityType.CHARACTER); private set
@@ -38,7 +40,7 @@ class WorkspaceState(
     fun open(id: String) {
         if (editor?.id == id) return
         val previous = editor
-        val next = EntityEditorState(id, entities, scope)
+        val next = EntityEditorState(id, entities, relationships, scope)
         editor = next
         scope.launch {
             previous?.flush()

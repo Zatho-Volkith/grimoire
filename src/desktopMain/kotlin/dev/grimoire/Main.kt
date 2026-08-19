@@ -8,6 +8,7 @@ import androidx.compose.ui.unit.dp
 import dev.grimoire.db.GrimoireDatabase
 import dev.grimoire.entity.EntityRepository
 import dev.grimoire.id.IdGenerator
+import dev.grimoire.relationship.RelationshipRepository
 import dev.grimoire.ui.App
 import dev.grimoire.ui.Session
 import dev.grimoire.world.WorldRepository
@@ -26,7 +27,7 @@ fun main() {
     val ids = IdGenerator(SecureRandom().asKotlinRandom(), System::currentTimeMillis)
     val clock = System::currentTimeMillis
     val scope = CoroutineScope(SupervisorJob() + Dispatchers.Main)
-    val session = Session(WorldRepository(db, ids, clock), EntityRepository(db, ids, clock), scope)
+    val session = Session(WorldRepository(db, ids, clock), EntityRepository(db, ids, clock), RelationshipRepository(db, ids, clock), scope)
 
     application {
         Window(

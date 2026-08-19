@@ -3,14 +3,20 @@ package dev.grimoire.ui
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.setValue
+import dev.grimoire.db.Entity
+import dev.grimoire.db.RelationshipsFor
 import dev.grimoire.entity.EntityRepository
 import dev.grimoire.json.JsonStrings
+import dev.grimoire.relationship.RelationshipKind
+import dev.grimoire.relationship.RelationshipRepository
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.NonCancellable
 import kotlinx.coroutines.cancelAndJoin
 import kotlinx.coroutines.delay
+import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.first
+import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 
@@ -22,9 +28,11 @@ import kotlinx.coroutines.withContext
 class EntityEditorState(
     val id: String,
     private val repo: EntityRepository,
+    private val relationships: RelationshipRepository,
     private val scope: CoroutineScope,
 ) {
     var loaded by mutableStateOf(false); private set
+    var worldId: String = ""; private set
     var name by mutableStateOf(""); private set
     var aliasesText by mutableStateOf(""); private set
     var summary by mutableStateOf(""); private set
@@ -35,6 +43,7 @@ class EntityEditorState(
 
     suspend fun load() {
         val e = repo.entity(id).first() ?: return
+        worldId = e.world_id
         name = e.name
         aliasesText = JsonStrings.decode(e.aliases).joinToString(", ")
         summary = e.summary.orEmpty()
@@ -46,6 +55,24 @@ class EntityEditorState(
     fun editAliasesText(v: String) = edit { aliasesText = v }
     fun editSummary(v: String) = edit { summary = v }
     fun editBody(v: String) = edit { body = v }
+
+    // --- Relationships: written straight through (no debounce), so no flush involvement.
+
+    val relationshipList: Flow<List<RelationshipsFor>> = relationships.forEntity(id)
+
+    /** Candidate targets for a new relationship: live search over the world, minus this entity. */
+    fun searchTargets(text: String): Flow<List<Entity>> =
+        repo.search(worldId, text).map { list -> list.filter { it.id != id } }
+
+    fun addRelationship(targetId: String, kind: RelationshipKind, label: String, inverseLabel: String) {
+        scope.launch {
+            relationships.create(worldId, fromEntity = id, toEntity = targetId, kind = kind.key, label = label, inverseLabel = inverseLabel)
+        }
+    }
+
+    fun removeRelationship(relationshipId: String) {
+        scope.launch { relationships.softDelete(relationshipId) }
+    }
 
     private fun edit(change: () -> Unit) {
         change()

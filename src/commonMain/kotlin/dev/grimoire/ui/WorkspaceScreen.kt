@@ -95,7 +95,7 @@ fun WorkspaceScreen(session: Session, ws: WorkspaceState) {
                         "Select an entity, or create a new ${ws.type.label.lowercase()}.",
                         Modifier.align(Alignment.Center), style = MaterialTheme.typography.bodyLarge,
                     )
-                    else -> EntityEditor(ed, onDelete = ws::deleteOpenEntity)
+                    else -> EntityEditor(ed, onDelete = ws::deleteOpenEntity, onOpenEntity = ws::open)
                 }
             }
         }
