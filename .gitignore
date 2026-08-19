@@ -21,3 +21,6 @@ local.properties
 *.appimage
 *.AppImage
 *.exe
+
+# ProxyAI (IDE plugin) local state
+.proxyai/

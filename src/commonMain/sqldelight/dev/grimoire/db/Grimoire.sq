@@ -351,6 +351,21 @@ insertWorld:
 INSERT INTO world (id, name, summary, kind, settings, created_at, updated_at)
 VALUES (?, ?, ?, ?, ?, ?, ?);
 
+worldById:
+SELECT * FROM world WHERE id = ?;
+
+
+-- Every world gets one user_authored source at creation; user-made entities hang off it.
+insertSource:
+INSERT INTO source (id, world_id, kind, label, created_at, updated_at)
+VALUES (?, ?, ?, ?, ?, ?);
+
+defaultSourceForWorld:
+SELECT * FROM source
+WHERE world_id = ? AND kind = 'user_authored' AND deleted_at IS NULL
+ORDER BY created_at
+LIMIT 1;
+
 
 entitiesByType:
 SELECT * FROM entity
@@ -383,6 +398,12 @@ ON CONFLICT(id) DO UPDATE SET
     attributes  = excluded.attributes,
     template_id = excluded.template_id,
     updated_at  = excluded.updated_at;
+
+-- Editor save path: only the user-editable text columns.
+updateEntityContent:
+UPDATE entity
+SET name = ?, aliases = ?, summary = ?, body = ?, updated_at = ?
+WHERE id = ?;
 
 softDeleteEntity:
 UPDATE entity SET deleted_at = ?, updated_at = ? WHERE id = ?;
