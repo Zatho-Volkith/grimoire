@@ -8,7 +8,7 @@ plugins {
 }
 
 group = "dev.grimoire"
-version = "0.0.1"
+version = "0.0.2"
 
 kotlin {
     jvmToolchain(21)
@@ -48,6 +48,12 @@ sqldelight {
         create("GrimoireDatabase") {
             packageName.set("dev.grimoire.db")
             dialect(libs.sqldelight.dialect.sqlite338)
+            // Migrations live next to the schema as N.sqm. `databases/N.db` are frozen snapshots of each
+            // released schema version; the build replays every migration against them and fails if the
+            // result diverges from Grimoire.sq. Regenerate the snapshot for a NEW version with
+            // ./gradlew generateCommonMainGrimoireDatabaseSchema — never overwrite a shipped one.
+            schemaOutputDirectory.set(file("src/commonMain/sqldelight/databases"))
+            verifyMigrations.set(true)
         }
     }
 }

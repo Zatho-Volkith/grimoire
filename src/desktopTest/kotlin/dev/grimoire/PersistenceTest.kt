@@ -52,6 +52,13 @@ class PersistenceTest {
     }
 
     @Test
+    fun `fresh database is stamped with the current schema version`() {
+        val driver = DriverFactory.create(tempDbFile())
+        val userVersion = driver.executeQuery(null, "PRAGMA user_version", { c -> c.next(); QueryResult.Value(c.getLong(0)) }, 0).value
+        assertEquals(GrimoireDatabase.Schema.version, userVersion)
+    }
+
+    @Test
     fun `driver enables WAL and foreign keys`() {
         val driver = DriverFactory.create(tempDbFile())
         val pragma = { name: String ->

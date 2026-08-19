@@ -3,6 +3,7 @@ package dev.grimoire
 import app.cash.sqldelight.db.SqlDriver
 import app.cash.sqldelight.driver.jdbc.sqlite.JdbcSqliteDriver
 import dev.grimoire.db.GrimoireDatabase
+import dev.grimoire.db.Migrations
 import java.nio.file.Path
 import java.util.Properties
 import kotlin.io.path.Path
@@ -18,7 +19,12 @@ object DriverFactory {
             setProperty("foreign_keys", "true")
             setProperty("journal_mode", "WAL")
         }
-        return JdbcSqliteDriver("jdbc:sqlite:${file.absolutePathString()}", props, GrimoireDatabase.Schema)
+        return JdbcSqliteDriver(
+            url = "jdbc:sqlite:${file.absolutePathString()}",
+            properties = props,
+            schema = GrimoireDatabase.Schema,
+            callbacks = Migrations.afterVersion,
+        )
     }
 
     /** Per-OS user data directory for this app. */
