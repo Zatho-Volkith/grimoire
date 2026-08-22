@@ -5,6 +5,11 @@ import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.setValue
 import androidx.compose.runtime.snapshotFlow
 import dev.grimoire.db.Entity
+import dev.grimoire.db.DeletedChaptersForWorld
+import dev.grimoire.db.DeletedEntitiesForWorld
+import dev.grimoire.db.DeletedEventsForWorld
+import dev.grimoire.db.DeletedTemplatesForWorld
+import dev.grimoire.db.DeletedWorksForWorld
 import dev.grimoire.db.Template
 import dev.grimoire.db.Timeline_event
 import dev.grimoire.db.Work
@@ -25,7 +30,7 @@ import kotlinx.coroutines.flow.flatMapLatest
 import kotlinx.coroutines.launch
 
 /** Which kind of thing the workspace is browsing. */
-enum class WorkspaceSection { ENTITIES, WORKS, TIMELINE, TEMPLATES }
+enum class WorkspaceSection { ENTITIES, WORKS, TIMELINE, TEMPLATES, TRASH }
 
 /** One open world: which section and type is browsed, what's searched, what's being edited. */
 class WorkspaceState(
@@ -68,10 +73,18 @@ class WorkspaceState(
     /** All of the world's templates, grouped by entity type. Live. */
     val templateList: Flow<List<Template>> = templates.forWorld(worldId)
 
+    // Trash: everything soft-deleted in this world, newest first. Live.
+    val trashEntities: Flow<List<DeletedEntitiesForWorld>> = entities.deleted(worldId)
+    val trashWorks: Flow<List<DeletedWorksForWorld>> = works.deletedWorks(worldId)
+    val trashChapters: Flow<List<DeletedChaptersForWorld>> = works.deletedChapters(worldId)
+    val trashEvents: Flow<List<DeletedEventsForWorld>> = timeline.deleted(worldId)
+    val trashTemplates: Flow<List<DeletedTemplatesForWorld>> = templates.deleted(worldId)
+
     fun selectType(t: EntityType) { section = WorkspaceSection.ENTITIES; type = t; search = "" }
     fun selectWorks() { section = WorkspaceSection.WORKS }
     fun selectTimeline() { section = WorkspaceSection.TIMELINE }
     fun selectTemplates() { section = WorkspaceSection.TEMPLATES }
+    fun selectTrash() { section = WorkspaceSection.TRASH }
     fun selectTemplateType(t: EntityType) { templateType = t }
     fun searchFor(q: String) { search = q }
 
@@ -87,8 +100,15 @@ class WorkspaceState(
             WorkspaceSection.WORKS -> { val p = workEditor ?: return; workEditor = null; scope.launch { p.flush() } }
             WorkspaceSection.TIMELINE -> { val p = eventEditor ?: return; eventEditor = null; scope.launch { p.flush() } }
             WorkspaceSection.TEMPLATES -> { val p = templateEditor ?: return; templateEditor = null; scope.launch { p.flush() } }
+            WorkspaceSection.TRASH -> Unit
         }
     }
+
+    fun restoreEntity(id: String) { scope.launch { entities.restore(id) } }
+    fun restoreWork(id: String) { scope.launch { works.restoreWork(id) } }
+    fun restoreChapter(id: String) { scope.launch { works.restoreChapter(id) } }
+    fun restoreEvent(id: String) { scope.launch { timeline.restore(id) } }
+    fun restoreTemplate(id: String) { scope.launch { templates.restore(id) } }
 
     fun open(id: String) {
         if (editor?.id == id) return

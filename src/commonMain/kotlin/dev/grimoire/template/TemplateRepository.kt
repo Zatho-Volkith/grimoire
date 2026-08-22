@@ -3,6 +3,7 @@ package dev.grimoire.template
 import app.cash.sqldelight.coroutines.asFlow
 import app.cash.sqldelight.coroutines.mapToList
 import app.cash.sqldelight.coroutines.mapToOneOrNull
+import dev.grimoire.db.DeletedTemplatesForWorld
 import dev.grimoire.db.GrimoireDatabase
 import dev.grimoire.db.Template
 import dev.grimoire.entity.EntityType
@@ -46,5 +47,12 @@ class TemplateRepository(
     suspend fun softDelete(id: String) = withContext(Dispatchers.IO) {
         val now = clock()
         q.softDeleteTemplate(deleted_at = now, updated_at = now, id = id)
+    }
+
+    fun deleted(worldId: String): Flow<List<DeletedTemplatesForWorld>> =
+        q.deletedTemplatesForWorld(worldId).asFlow().mapToList(Dispatchers.IO)
+
+    suspend fun restore(id: String) = withContext(Dispatchers.IO) {
+        q.restoreTemplate(updated_at = clock(), id = id)
     }
 }

@@ -3,6 +3,7 @@ package dev.grimoire.timeline
 import app.cash.sqldelight.coroutines.asFlow
 import app.cash.sqldelight.coroutines.mapToList
 import app.cash.sqldelight.coroutines.mapToOneOrNull
+import dev.grimoire.db.DeletedEventsForWorld
 import dev.grimoire.db.GrimoireDatabase
 import dev.grimoire.db.ParticipantsForEvent
 import dev.grimoire.db.Timeline_event
@@ -69,6 +70,13 @@ class TimelineRepository(
     suspend fun softDelete(id: String) = withContext(Dispatchers.IO) {
         val now = clock()
         q.softDeleteEvent(deleted_at = now, updated_at = now, id = id)
+    }
+
+    fun deleted(worldId: String): Flow<List<DeletedEventsForWorld>> =
+        q.deletedEventsForWorld(worldId).asFlow().mapToList(Dispatchers.IO)
+
+    suspend fun restore(id: String) = withContext(Dispatchers.IO) {
+        q.restoreEvent(updated_at = clock(), id = id)
     }
 
     // --- participants ---

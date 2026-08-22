@@ -91,6 +91,12 @@ fun WorkspaceScreen(session: Session, ws: WorkspaceState) {
                     icon = { Text("Tp", fontWeight = FontWeight.Bold) },
                     label = { Text("Templates") },
                 )
+                NavigationRailItem(
+                    selected = ws.section == WorkspaceSection.TRASH,
+                    onClick = ws::selectTrash,
+                    icon = { Text("🗑", fontWeight = FontWeight.Bold) },
+                    label = { Text("Trash") },
+                )
             }
             VerticalDivider()
 
@@ -99,6 +105,7 @@ fun WorkspaceScreen(session: Session, ws: WorkspaceState) {
                 WorkspaceSection.WORKS -> WorksSection(ws)
                 WorkspaceSection.TIMELINE -> TimelineSection(ws)
                 WorkspaceSection.TEMPLATES -> TemplatesSection(ws)
+                WorkspaceSection.TRASH -> TrashSection(ws)
             }
         }
     }
@@ -267,6 +274,55 @@ private fun TemplatesSection(ws: WorkspaceState) {
                 Modifier.align(Alignment.Center), style = MaterialTheme.typography.bodyLarge,
             )
             else -> TemplateEditor(ed, onDelete = ws::deleteOpenTemplate)
+        }
+    }
+}
+
+/** Everything soft-deleted in this world. Restore clears the tombstone; nothing is ever purged. */
+@Composable
+private fun TrashSection(ws: WorkspaceState) {
+    val entities by ws.trashEntities.collectAsState(initial = emptyList())
+    val works by ws.trashWorks.collectAsState(initial = emptyList())
+    val chapters by ws.trashChapters.collectAsState(initial = emptyList())
+    val events by ws.trashEvents.collectAsState(initial = emptyList())
+    val templates by ws.trashTemplates.collectAsState(initial = emptyList())
+    val empty = entities.isEmpty() && works.isEmpty() && chapters.isEmpty() && events.isEmpty() && templates.isEmpty()
+
+    LazyColumn(Modifier.fillMaxSize().padding(16.dp)) {
+        item { Text("Trash", style = MaterialTheme.typography.headlineSmall, modifier = Modifier.padding(bottom = 4.dp)) }
+        item {
+            Text(
+                if (empty) "Trash is empty." else "Deleted things wait here until you restore them.",
+                style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.outline,
+                modifier = Modifier.padding(bottom = 8.dp),
+            )
+        }
+        trashGroup("Entities", entities, { it.id }, { it.name }, { EntityType.fromKey(it.type).label }, ws::restoreEntity)
+        trashGroup("Works", works, { it.id }, { it.title }, { WorkStatus.fromKey(it.status).label }, ws::restoreWork)
+        trashGroup("Chapters", chapters, { it.id }, { it.title ?: "Untitled chapter" }, { "in ${it.work_title}" }, ws::restoreChapter)
+        trashGroup("Events", events, { it.id }, { it.title }, { it.display_date ?: "" }, ws::restoreEvent)
+        trashGroup("Templates", templates, { it.id }, { it.name }, { EntityType.fromKey(it.entity_type).label }, ws::restoreTemplate)
+    }
+}
+
+private fun <T> androidx.compose.foundation.lazy.LazyListScope.trashGroup(
+    title: String,
+    items: List<T>,
+    key: (T) -> String,
+    name: (T) -> String,
+    subtitle: (T) -> String,
+    restore: (String) -> Unit,
+) {
+    if (items.isEmpty()) return
+    item(key = "header-$title") {
+        Text(title, style = MaterialTheme.typography.titleMedium, modifier = Modifier.padding(top = 12.dp, bottom = 4.dp))
+    }
+    items(items, key = key) { t ->
+        Row(Modifier.fillMaxWidth().padding(vertical = 2.dp), verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+            Text(name(t), style = MaterialTheme.typography.bodyLarge)
+            Text(subtitle(t), style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.outline)
+            Spacer(Modifier.weight(1f))
+            TextButton(onClick = { restore(key(t)) }) { Text("Restore") }
         }
     }
 }

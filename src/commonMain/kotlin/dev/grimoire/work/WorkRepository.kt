@@ -4,6 +4,8 @@ import app.cash.sqldelight.coroutines.asFlow
 import app.cash.sqldelight.coroutines.mapToList
 import app.cash.sqldelight.coroutines.mapToOneOrNull
 import dev.grimoire.db.Chapter
+import dev.grimoire.db.DeletedChaptersForWorld
+import dev.grimoire.db.DeletedWorksForWorld
 import dev.grimoire.db.GrimoireDatabase
 import dev.grimoire.db.Work
 import dev.grimoire.id.IdGenerator
@@ -96,5 +98,22 @@ class WorkRepository(
     suspend fun softDeleteChapter(id: String) = withContext(Dispatchers.IO) {
         val now = clock()
         q.softDeleteChapter(deleted_at = now, updated_at = now, id = id)
+    }
+
+    // --- trash ---
+
+    fun deletedWorks(worldId: String): Flow<List<DeletedWorksForWorld>> =
+        q.deletedWorksForWorld(worldId).asFlow().mapToList(Dispatchers.IO)
+
+    fun deletedChapters(worldId: String): Flow<List<DeletedChaptersForWorld>> =
+        q.deletedChaptersForWorld(worldId).asFlow().mapToList(Dispatchers.IO)
+
+    suspend fun restoreWork(id: String) = withContext(Dispatchers.IO) {
+        q.restoreWork(updated_at = clock(), id = id)
+    }
+
+    /** The chapter returns at its original sort_position (positions are never reused). */
+    suspend fun restoreChapter(id: String) = withContext(Dispatchers.IO) {
+        q.restoreChapter(updated_at = clock(), id = id)
     }
 }

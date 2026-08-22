@@ -243,4 +243,23 @@ class WorkspaceScreenTest {
         rule.waitUntil(5_000) { session.theme == dev.grimoire.ui.AppTheme.PARCHMENT }
         assertEquals("parchment", settings.saved["theme"])
     }
+
+    @Test
+    fun `deleting an entity sends it to trash and restore brings it back`() {
+        val w = runBlocking { worlds.create("Arda") }
+        val kaede = runBlocking { entities.create(w, EntityType.CHARACTER, "Kaede") }
+        session.openWorld(w)
+        rule.setContent { App(session) }
+        session.workspace!!.open(kaede)
+        rule.waitUntil(5_000) { session.workspace?.editor?.loaded == true }
+
+        rule.onNodeWithText("Delete").performClick()
+        rule.waitUntil(5_000) { runBlocking { entities.byType(w, EntityType.CHARACTER).first() }.isEmpty() }
+
+        rule.onNodeWithText("Trash").performClick()
+        rule.waitUntilAtLeastOneExists(hasText("Kaede"), 5_000)
+        rule.onNodeWithText("Restore").performClick()
+        rule.waitUntil(5_000) { runBlocking { entities.byType(w, EntityType.CHARACTER).first() }.size == 1 }
+        rule.waitUntilAtLeastOneExists(hasText("Trash is empty."), 5_000)
+    }
 }

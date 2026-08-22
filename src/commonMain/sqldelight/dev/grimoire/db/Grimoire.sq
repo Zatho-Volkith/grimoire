@@ -609,3 +609,39 @@ SELECT c.* FROM chapter c
 JOIN work w ON w.id = c.work_id
 WHERE w.world_id = ? AND c.deleted_at IS NULL AND w.deleted_at IS NULL
 ORDER BY c.work_id, c.sort_position;
+
+
+-- --- Trash (restore = clear the tombstone; nothing is ever hard-deleted) ----
+
+deletedEntitiesForWorld:
+SELECT * FROM entity WHERE world_id = ? AND deleted_at IS NOT NULL ORDER BY deleted_at DESC;
+
+restoreEntity:
+UPDATE entity SET deleted_at = NULL, updated_at = ? WHERE id = ?;
+
+deletedWorksForWorld:
+SELECT * FROM work WHERE world_id = ? AND deleted_at IS NOT NULL ORDER BY deleted_at DESC;
+
+restoreWork:
+UPDATE work SET deleted_at = NULL, updated_at = ? WHERE id = ?;
+
+deletedChaptersForWorld:
+SELECT c.*, w.title AS work_title FROM chapter c
+JOIN work w ON w.id = c.work_id
+WHERE w.world_id = ? AND c.deleted_at IS NOT NULL
+ORDER BY c.deleted_at DESC;
+
+restoreChapter:
+UPDATE chapter SET deleted_at = NULL, updated_at = ? WHERE id = ?;
+
+deletedEventsForWorld:
+SELECT * FROM timeline_event WHERE world_id = ? AND deleted_at IS NOT NULL ORDER BY deleted_at DESC;
+
+restoreEvent:
+UPDATE timeline_event SET deleted_at = NULL, updated_at = ? WHERE id = ?;
+
+deletedTemplatesForWorld:
+SELECT * FROM template WHERE world_id = ? AND deleted_at IS NOT NULL ORDER BY deleted_at DESC;
+
+restoreTemplate:
+UPDATE template SET deleted_at = NULL, updated_at = ? WHERE id = ?;

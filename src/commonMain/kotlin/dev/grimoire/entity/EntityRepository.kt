@@ -3,6 +3,7 @@ package dev.grimoire.entity
 import app.cash.sqldelight.coroutines.asFlow
 import app.cash.sqldelight.coroutines.mapToList
 import app.cash.sqldelight.coroutines.mapToOneOrNull
+import dev.grimoire.db.DeletedEntitiesForWorld
 import dev.grimoire.db.Entity
 import dev.grimoire.db.GrimoireDatabase
 import dev.grimoire.id.IdGenerator
@@ -59,5 +60,12 @@ class EntityRepository(
     suspend fun softDelete(id: String) = withContext(Dispatchers.IO) {
         val now = clock()
         q.softDeleteEntity(deleted_at = now, updated_at = now, id = id)
+    }
+
+    fun deleted(worldId: String): Flow<List<DeletedEntitiesForWorld>> =
+        q.deletedEntitiesForWorld(worldId).asFlow().mapToList(Dispatchers.IO)
+
+    suspend fun restore(id: String) = withContext(Dispatchers.IO) {
+        q.restoreEntity(updated_at = clock(), id = id)
     }
 }

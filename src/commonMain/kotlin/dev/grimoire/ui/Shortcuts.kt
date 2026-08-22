@@ -12,7 +12,7 @@ import androidx.compose.ui.input.key.type
  * App-wide keyboard shortcuts, dispatched from the window's preview pass so they win over
  * focused text fields. Returns true when the event was consumed.
  *
- * Ctrl/Cmd+S  save everything now        Ctrl/Cmd+1..4  Entities / Works / Timeline / Templates
+ * Ctrl/Cmd+S  save everything now        Ctrl/Cmd+1..5  Entities / Works / Timeline / Templates / Trash
  * Ctrl/Cmd+N  new item in the section    Ctrl/Cmd+F     search entities
  * Esc         close the open editor
  */
@@ -28,12 +28,14 @@ fun handleShortcut(session: Session, event: KeyEvent): Boolean {
             WorkspaceSection.WORKS -> ws.createWork()
             WorkspaceSection.TIMELINE -> ws.createEvent()
             WorkspaceSection.TEMPLATES -> ws.createTemplate()
+            WorkspaceSection.TRASH -> Unit
         }
         mod && event.key == Key.F -> ws.focusSearch()
         mod && event.key == Key.One -> ws.selectType(ws.type)
         mod && event.key == Key.Two -> ws.selectWorks()
         mod && event.key == Key.Three -> ws.selectTimeline()
         mod && event.key == Key.Four -> ws.selectTemplates()
+        mod && event.key == Key.Five -> ws.selectTrash()
         !mod && event.key == Key.Escape -> ws.closeCurrent()
         else -> return false
     }
