@@ -63,12 +63,19 @@ fun WorkspaceScreen(session: Session, ws: WorkspaceState) {
                     icon = { Text("W", fontWeight = FontWeight.Bold) },
                     label = { Text("Works") },
                 )
+                NavigationRailItem(
+                    selected = ws.section == WorkspaceSection.TIMELINE,
+                    onClick = ws::selectTimeline,
+                    icon = { Text("T", fontWeight = FontWeight.Bold) },
+                    label = { Text("Timeline") },
+                )
             }
             VerticalDivider()
 
             when (ws.section) {
                 WorkspaceSection.ENTITIES -> EntitiesSection(ws)
                 WorkspaceSection.WORKS -> WorksSection(ws)
+                WorkspaceSection.TIMELINE -> TimelineSection(ws)
             }
         }
     }
@@ -149,6 +156,41 @@ private fun WorksSection(ws: WorkspaceState) {
                 Modifier.align(Alignment.Center), style = MaterialTheme.typography.bodyLarge,
             )
             else -> WorkEditor(ed, onDelete = ws::deleteOpenWork)
+        }
+    }
+}
+
+@Composable
+private fun TimelineSection(ws: WorkspaceState) {
+    val events by ws.eventList.collectAsState(initial = emptyList())
+
+    Column(Modifier.width(300.dp).fillMaxHeight().padding(8.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
+        Button(onClick = ws::createEvent, modifier = Modifier.fillMaxWidth()) { Text("New Event") }
+        Text("${events.size} event(s)", style = MaterialTheme.typography.labelMedium)
+        LazyColumn(Modifier.fillMaxSize()) {
+            items(events, key = { it.id }) { e ->
+                val selected = ws.eventEditor?.id == e.id
+                Column(
+                    Modifier.fillMaxWidth()
+                        .background(if (selected) MaterialTheme.colorScheme.secondaryContainer else MaterialTheme.colorScheme.surface)
+                        .clickable { ws.openEvent(e.id) }
+                        .padding(horizontal = 8.dp, vertical = 6.dp),
+                ) {
+                    Text(e.title, style = MaterialTheme.typography.bodyLarge, maxLines = 1)
+                    e.display_date?.let { Text(it, style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.outline) }
+                }
+            }
+        }
+    }
+    VerticalDivider()
+
+    Box(Modifier.fillMaxSize()) {
+        when (val ed = ws.eventEditor) {
+            null -> Text(
+                "Select an event, or create a new one.",
+                Modifier.align(Alignment.Center), style = MaterialTheme.typography.bodyLarge,
+            )
+            else -> EventEditor(ed, onDelete = ws::deleteOpenEvent, onMove = ws::moveOpenEvent, onOpenEntity = ws::open)
         }
     }
 }

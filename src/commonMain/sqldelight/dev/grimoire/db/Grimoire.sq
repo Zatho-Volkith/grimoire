@@ -513,3 +513,44 @@ UPDATE chapter SET sort_position = ?, updated_at = ? WHERE id = ?;
 
 softDeleteChapter:
 UPDATE chapter SET deleted_at = ?, updated_at = ? WHERE id = ?;
+
+
+-- --- Timeline ---------------------------------------------------------------
+
+eventById:
+SELECT * FROM timeline_event WHERE id = ?;
+
+-- Includes soft-deleted rows so a restored event can never collide.
+nextEventPosition:
+SELECT COALESCE(MAX(sort_position), 0) + 1 FROM timeline_event
+WHERE world_id = ? AND calendar_key = ?;
+
+insertEvent:
+INSERT INTO timeline_event (id, world_id, calendar_key, title, description, display_date, sort_position, era, created_at, updated_at)
+VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?);
+
+updateEventContent:
+UPDATE timeline_event SET title = ?, description = ?, display_date = ?, era = ?, updated_at = ? WHERE id = ?;
+
+setEventPosition:
+UPDATE timeline_event SET sort_position = ?, updated_at = ? WHERE id = ?;
+
+softDeleteEvent:
+UPDATE timeline_event SET deleted_at = ?, updated_at = ? WHERE id = ?;
+
+-- Re-adding a previously removed participant revives its tombstoned row.
+upsertParticipant:
+INSERT INTO event_participant (event_id, entity_id, role, created_at, updated_at)
+VALUES (?, ?, ?, ?, ?)
+ON CONFLICT(event_id, entity_id) DO UPDATE SET
+    role = excluded.role, deleted_at = NULL, updated_at = excluded.updated_at;
+
+softDeleteParticipant:
+UPDATE event_participant SET deleted_at = ?, updated_at = ? WHERE event_id = ? AND entity_id = ?;
+
+participantsForEvent:
+SELECT p.entity_id, p.role, e.name, e.type
+FROM event_participant p
+JOIN entity e ON e.id = p.entity_id
+WHERE p.event_id = ? AND p.deleted_at IS NULL AND e.deleted_at IS NULL
+ORDER BY e.name;

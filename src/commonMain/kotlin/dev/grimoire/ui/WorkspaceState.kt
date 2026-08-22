@@ -5,10 +5,12 @@ import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.setValue
 import androidx.compose.runtime.snapshotFlow
 import dev.grimoire.db.Entity
+import dev.grimoire.db.Timeline_event
 import dev.grimoire.db.Work
 import dev.grimoire.entity.EntityRepository
 import dev.grimoire.entity.EntityType
 import dev.grimoire.relationship.RelationshipRepository
+import dev.grimoire.timeline.TimelineRepository
 import dev.grimoire.work.WorkRepository
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.ExperimentalCoroutinesApi
@@ -19,7 +21,7 @@ import kotlinx.coroutines.flow.flatMapLatest
 import kotlinx.coroutines.launch
 
 /** Which kind of thing the workspace is browsing. */
-enum class WorkspaceSection { ENTITIES, WORKS }
+enum class WorkspaceSection { ENTITIES, WORKS, TIMELINE }
 
 /** One open world: which section and type is browsed, what's searched, what's being edited. */
 class WorkspaceState(
@@ -27,6 +29,7 @@ class WorkspaceState(
     private val entities: EntityRepository,
     private val relationships: RelationshipRepository,
     private val works: WorkRepository,
+    private val timeline: TimelineRepository,
     private val scope: CoroutineScope,
 ) {
     var section by mutableStateOf(WorkspaceSection.ENTITIES); private set
@@ -34,6 +37,7 @@ class WorkspaceState(
     var search by mutableStateOf(""); private set
     var editor by mutableStateOf<EntityEditorState?>(null); private set
     var workEditor by mutableStateOf<WorkEditorState?>(null); private set
+    var eventEditor by mutableStateOf<EventEditorState?>(null); private set
 
     /** The entity list pane: search hits when a query is present, else the selected type. Live. */
     @OptIn(ExperimentalCoroutinesApi::class, FlowPreview::class)
@@ -45,8 +49,12 @@ class WorkspaceState(
     /** The works list pane. Live. */
     val workList: Flow<List<Work>> = works.forWorld(worldId)
 
+    /** The timeline pane, in reading order. Live. */
+    val eventList: Flow<List<Timeline_event>> = timeline.events(worldId)
+
     fun selectType(t: EntityType) { section = WorkspaceSection.ENTITIES; type = t; search = "" }
     fun selectWorks() { section = WorkspaceSection.WORKS }
+    fun selectTimeline() { section = WorkspaceSection.TIMELINE }
     fun searchFor(q: String) { search = q }
 
     fun open(id: String) {
@@ -100,8 +108,38 @@ class WorkspaceState(
         scope.launch { works.softDeleteWork(target.id) }
     }
 
+    // --- timeline ---
+
+    fun openEvent(id: String) {
+        if (eventEditor?.id == id) return
+        val previous = eventEditor
+        val next = EventEditorState(id, timeline, entities, scope)
+        eventEditor = next
+        scope.launch {
+            previous?.flush()
+            next.load()
+        }
+    }
+
+    fun createEvent() {
+        scope.launch { openEvent(timeline.create(worldId, "New event")) }
+    }
+
+    fun deleteOpenEvent() {
+        val target = eventEditor ?: return
+        eventEditor = null
+        scope.launch { timeline.softDelete(target.id) }
+    }
+
+    /** Moves the open event one slot up (-1) or down (+1) on the timeline. */
+    fun moveOpenEvent(delta: Int) {
+        val target = eventEditor ?: return
+        scope.launch { timeline.move(target.id, delta) }
+    }
+
     suspend fun flush() {
         editor?.flush()
         workEditor?.flush()
+        eventEditor?.flush()
     }
 }

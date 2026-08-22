@@ -16,6 +16,7 @@ import dev.grimoire.entity.EntityRepository
 import dev.grimoire.entity.EntityType
 import dev.grimoire.id.IdGenerator
 import dev.grimoire.relationship.RelationshipRepository
+import dev.grimoire.timeline.TimelineRepository
 import dev.grimoire.work.WorkRepository
 import dev.grimoire.ui.App
 import dev.grimoire.ui.Session
@@ -42,7 +43,8 @@ class WorkspaceScreenTest {
     private val entities = EntityRepository(db, ids, System::currentTimeMillis)
     private val relationships = RelationshipRepository(db, ids, System::currentTimeMillis)
     private val works = WorkRepository(db, ids, System::currentTimeMillis)
-    private val session = Session(worlds, entities, relationships, works, CoroutineScope(SupervisorJob() + Dispatchers.Default))
+    private val timeline = TimelineRepository(db, ids, System::currentTimeMillis)
+    private val session = Session(worlds, entities, relationships, works, timeline, CoroutineScope(SupervisorJob() + Dispatchers.Default))
 
     @Test
     fun `create world, add a location, rename it, find it by search`() {
@@ -128,5 +130,32 @@ class WorkspaceScreenTest {
         rule.waitUntil(5_000) {
             session.workspace?.workEditor?.chapterEditor?.body == "The road goes *ever* on."
         }
+    }
+
+    @Test
+    fun `create an event and link a participant who opens as an entity`() {
+        val w = runBlocking { worlds.create("Arda") }
+        val kaede = runBlocking { entities.create(w, EntityType.CHARACTER, "Kaede") }
+        session.openWorld(w)
+        rule.setContent { App(session) }
+
+        rule.onNodeWithText("Timeline").performClick()
+        rule.onNodeWithText("New Event").performClick()
+        rule.waitUntil(5_000) { session.workspace?.eventEditor?.loaded == true }
+
+        rule.onNode(hasSetTextAction() and hasText("When (free text)")).performTextInput("Third Age, 3019")
+        runBlocking { session.flush() }
+        val eventId = session.workspace!!.eventEditor!!.id
+        assertEquals("Third Age, 3019", runBlocking { timeline.event(eventId).first() }!!.display_date)
+
+        rule.onNode(hasSetTextAction() and hasText("Find entity")).performTextInput("kae")
+        rule.waitUntilAtLeastOneExists(hasText("Kaede") and hasText("Character") and hasClickAction(), 5_000)
+        rule.onNode(hasText("Kaede") and hasText("Character") and hasClickAction()).performClick()
+        rule.onNodeWithText("Add").performClick()
+        rule.waitUntilAtLeastOneExists(hasTestTag("participant-link"), 5_000)
+
+        // Clicking the participant jumps to that entity in the Entities section.
+        rule.onNode(hasTestTag("participant-link")).performClick()
+        rule.waitUntil(5_000) { session.workspace?.editor?.id == kaede }
     }
 }

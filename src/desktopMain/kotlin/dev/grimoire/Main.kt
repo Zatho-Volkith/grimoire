@@ -9,6 +9,7 @@ import dev.grimoire.db.GrimoireDatabase
 import dev.grimoire.entity.EntityRepository
 import dev.grimoire.id.IdGenerator
 import dev.grimoire.relationship.RelationshipRepository
+import dev.grimoire.timeline.TimelineRepository
 import dev.grimoire.work.WorkRepository
 import dev.grimoire.ui.App
 import dev.grimoire.ui.Session
@@ -30,7 +31,8 @@ fun main() {
     val scope = CoroutineScope(SupervisorJob() + Dispatchers.Main)
     val session = Session(
         WorldRepository(db, ids, clock), EntityRepository(db, ids, clock),
-        RelationshipRepository(db, ids, clock), WorkRepository(db, ids, clock), scope,
+        RelationshipRepository(db, ids, clock), WorkRepository(db, ids, clock),
+        TimelineRepository(db, ids, clock), scope,
     )
 
     application {
