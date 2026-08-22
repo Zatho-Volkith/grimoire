@@ -7,6 +7,7 @@ import dev.grimoire.entity.EntityRepository
 import dev.grimoire.export.ExportSink
 import dev.grimoire.export.WorldExporter
 import dev.grimoire.relationship.RelationshipRepository
+import dev.grimoire.settings.SettingsStore
 import dev.grimoire.template.TemplateRepository
 import dev.grimoire.timeline.TimelineRepository
 import dev.grimoire.work.WorkRepository
@@ -24,9 +25,11 @@ class Session(
     val templates: TemplateRepository,
     val exporter: WorldExporter,
     val exportSink: ExportSink,
+    private val settings: SettingsStore,
     private val scope: CoroutineScope,
 ) {
     var workspace by mutableStateOf<WorkspaceState?>(null); private set
+    var theme by mutableStateOf(AppTheme.fromKey(settings.load()["theme"])); private set
 
     fun openWorld(id: String) { workspace = WorkspaceState(id, entities, relationships, works, timeline, templates, exporter, exportSink, scope) }
 
@@ -38,6 +41,11 @@ class Session(
 
     fun createWorld(name: String) {
         scope.launch { openWorld(worlds.create(name)) }
+    }
+
+    fun selectTheme(t: AppTheme) {
+        theme = t
+        settings.save(settings.load() + ("theme" to t.key))
     }
 
     /** Fire-and-forget flush — the Ctrl+S path. */

@@ -4,6 +4,7 @@ import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.widthIn
@@ -33,7 +34,11 @@ fun WorldPickerScreen(session: Session) {
         Modifier.fillMaxWidth().widthIn(max = 640.dp).padding(32.dp),
         verticalArrangement = Arrangement.spacedBy(16.dp),
     ) {
-        Text("Worlds", style = MaterialTheme.typography.headlineMedium)
+        Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
+            Text("Worlds", style = MaterialTheme.typography.headlineMedium)
+            Spacer(Modifier.weight(1f))
+            ThemeMenu(session)
+        }
         Row(horizontalArrangement = Arrangement.spacedBy(8.dp), verticalAlignment = Alignment.CenterVertically) {
             OutlinedTextField(name, { name = it }, label = { Text("New world") }, singleLine = true, modifier = Modifier.weight(1f))
             Button(

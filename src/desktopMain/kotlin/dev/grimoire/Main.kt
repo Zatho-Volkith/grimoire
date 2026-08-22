@@ -36,7 +36,8 @@ fun main() {
         WorldRepository(db, ids, clock), EntityRepository(db, ids, clock),
         RelationshipRepository(db, ids, clock), WorkRepository(db, ids, clock),
         TimelineRepository(db, ids, clock), TemplateRepository(db, ids, clock),
-        WorldExporter(db), MarkdownVaultSink(), scope,
+        WorldExporter(db), MarkdownVaultSink(),
+        FileSettingsStore(DriverFactory.appDataDir().resolve("settings.json")), scope,
     )
 
     application {

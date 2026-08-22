@@ -49,9 +49,14 @@ class WorkspaceScreenTest {
     private val works = WorkRepository(db, ids, System::currentTimeMillis)
     private val timeline = TimelineRepository(db, ids, System::currentTimeMillis)
     private val templates = TemplateRepository(db, ids, System::currentTimeMillis)
+    private val settings = object : dev.grimoire.settings.SettingsStore {
+        var saved = mapOf<String, String>()
+        override fun load() = saved
+        override fun save(values: Map<String, String>) { saved = values }
+    }
     private val session = Session(
         worlds, entities, relationships, works, timeline, templates,
-        WorldExporter(db), ExportSink { _, _ -> "/fake/vault" }, CoroutineScope(SupervisorJob() + Dispatchers.Default))
+        WorldExporter(db), ExportSink { _, _ -> "/fake/vault" }, settings, CoroutineScope(SupervisorJob() + Dispatchers.Default))
 
     @Test
     fun `create world, add a location, rename it, find it by search`() {
@@ -225,5 +230,17 @@ class WorkspaceScreenTest {
         // Hiding the preview removes it.
         rule.onNodeWithText("Hide preview").performClick()
         rule.waitUntil(5_000) { session.workspace?.workEditor?.chapterEditor?.showPreview == false }
+    }
+
+    @Test
+    fun `theme menu switches the palette from the world picker`() {
+        rule.setContent { App(session) }
+        assertEquals(dev.grimoire.ui.AppTheme.GRIMOIRE, session.theme)
+
+        rule.onNodeWithText("Theme: Grimoire").performClick()
+        rule.waitUntilAtLeastOneExists(hasText("Parchment") and hasClickAction(), 5_000)
+        rule.onNode(hasText("Parchment") and hasClickAction()).performClick()
+        rule.waitUntil(5_000) { session.theme == dev.grimoire.ui.AppTheme.PARCHMENT }
+        assertEquals("parchment", settings.saved["theme"])
     }
 }

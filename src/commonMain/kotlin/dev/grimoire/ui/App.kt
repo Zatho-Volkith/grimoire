@@ -9,7 +9,7 @@ import androidx.compose.ui.input.key.onPreviewKeyEvent
 
 @Composable
 fun App(session: Session) {
-    MaterialTheme {
+    MaterialTheme(colorScheme = session.theme.colors, typography = GrimoireTypography) {
         Surface(Modifier.fillMaxSize().onPreviewKeyEvent { handleShortcut(session, it) }) {
             when (val ws = session.workspace) {
                 null -> WorldPickerScreen(session)

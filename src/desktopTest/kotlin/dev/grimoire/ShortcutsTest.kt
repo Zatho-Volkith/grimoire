@@ -41,13 +41,18 @@ class ShortcutsTest {
     private val db = GrimoireDatabase(DriverFactory.create(createTempDirectory("grimoire-test").resolve("g.db")))
     private val worlds = WorldRepository(db, ids, System::currentTimeMillis)
     private val entities = EntityRepository(db, ids, System::currentTimeMillis)
+    private val settings = object : dev.grimoire.settings.SettingsStore {
+        var saved = mapOf<String, String>()
+        override fun load() = saved
+        override fun save(values: Map<String, String>) { saved = values }
+    }
     private val session = Session(
         worlds, entities,
         RelationshipRepository(db, ids, System::currentTimeMillis),
         WorkRepository(db, ids, System::currentTimeMillis),
         TimelineRepository(db, ids, System::currentTimeMillis),
         TemplateRepository(db, ids, System::currentTimeMillis),
-        WorldExporter(db), ExportSink { _, _ -> null },
+        WorldExporter(db), ExportSink { _, _ -> null }, settings,
         CoroutineScope(SupervisorJob() + Dispatchers.Default),
     )
 
