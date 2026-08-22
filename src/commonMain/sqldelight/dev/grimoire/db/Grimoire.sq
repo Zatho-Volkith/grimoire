@@ -399,10 +399,10 @@ ON CONFLICT(id) DO UPDATE SET
     template_id = excluded.template_id,
     updated_at  = excluded.updated_at;
 
--- Editor save path: only the user-editable text columns.
+-- Editor save path: only the editor-owned columns.
 updateEntityContent:
 UPDATE entity
-SET name = ?, aliases = ?, summary = ?, body = ?, updated_at = ?
+SET name = ?, aliases = ?, summary = ?, body = ?, template_id = ?, attributes = ?, updated_at = ?
 WHERE id = ?;
 
 softDeleteEntity:
@@ -554,3 +554,30 @@ FROM event_participant p
 JOIN entity e ON e.id = p.entity_id
 WHERE p.event_id = ? AND p.deleted_at IS NULL AND e.deleted_at IS NULL
 ORDER BY e.name;
+
+
+-- --- Templates --------------------------------------------------------------
+
+-- World-scoped templates plus any global (world_id IS NULL) built-ins.
+templatesForType:
+SELECT * FROM template
+WHERE entity_type = ? AND (world_id = ? OR world_id IS NULL) AND deleted_at IS NULL
+ORDER BY name;
+
+templatesForWorld:
+SELECT * FROM template
+WHERE (world_id = ? OR world_id IS NULL) AND deleted_at IS NULL
+ORDER BY entity_type, name;
+
+templateById:
+SELECT * FROM template WHERE id = ?;
+
+insertTemplate:
+INSERT INTO template (id, world_id, entity_type, name, fields, is_builtin, created_at, updated_at)
+VALUES (?, ?, ?, ?, ?, ?, ?, ?);
+
+updateTemplateContent:
+UPDATE template SET name = ?, fields = ?, updated_at = ? WHERE id = ?;
+
+softDeleteTemplate:
+UPDATE template SET deleted_at = ?, updated_at = ? WHERE id = ?;

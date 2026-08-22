@@ -6,6 +6,7 @@ import dev.grimoire.entity.EntityType
 import dev.grimoire.id.IdGenerator
 import dev.grimoire.json.JsonStrings
 import dev.grimoire.relationship.RelationshipRepository
+import dev.grimoire.template.TemplateRepository
 import dev.grimoire.ui.EntityEditorState
 import dev.grimoire.world.WorldRepository
 import kotlinx.coroutines.flow.first
@@ -24,6 +25,7 @@ class EntityRepositoryTest {
     private val worlds = WorldRepository(db, ids) { now }
     private val entities = EntityRepository(db, ids) { now }
     private val relationships = RelationshipRepository(db, ids) { now }
+    private val templates = TemplateRepository(db, ids) { now }
 
     @Test
     fun `world creation seeds a user_authored source and entities attach to it`() = runTest {
@@ -50,7 +52,7 @@ class EntityRepositoryTest {
         assertEquals(setOf(kaede, village), entities.search(w, "kae").first().map { it.id }.toSet())
         assertTrue(entities.search(w, "   ").first().isEmpty())
 
-        entities.updateContent(kaede, "Kaede", aliases = listOf("The North Wind"), summary = "swordswoman", body = null)
+        entities.updateContent(kaede, "Kaede", aliases = listOf("The North Wind"), summary = "swordswoman", body = null, templateId = null, attributes = emptyMap())
         assertEquals(listOf(kaede), entities.search(w, "north wind").first().map { it.id })
         assertEquals(listOf("The North Wind"), JsonStrings.decode(entities.entity(kaede).first()!!.aliases))
 
@@ -63,7 +65,7 @@ class EntityRepositoryTest {
     fun `editor debounces writes and flush persists the latest keystrokes`() = runTest {
         val w = worlds.create("Arda")
         val id = entities.create(w, EntityType.CHARACTER, "Kaede")
-        val editor = EntityEditorState(id, entities, relationships, backgroundScope)
+        val editor = EntityEditorState(id, entities, relationships, templates, backgroundScope)
         editor.load()
         assertTrue(editor.loaded)
 
@@ -97,7 +99,7 @@ class EntityRepositoryTest {
     fun `blank name saves as Untitled rather than empty`() = runTest {
         val w = worlds.create("Arda")
         val id = entities.create(w, EntityType.ITEM, "Sword")
-        val editor = EntityEditorState(id, entities, relationships, backgroundScope)
+        val editor = EntityEditorState(id, entities, relationships, templates, backgroundScope)
         editor.load()
         editor.editName("   ")
         editor.flush()

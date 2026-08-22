@@ -10,11 +10,23 @@ import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
+import androidx.compose.material3.DropdownMenuItem
+import androidx.compose.material3.ExperimentalMaterial3Api
+import androidx.compose.material3.ExposedDropdownMenuAnchorType
+import androidx.compose.material3.ExposedDropdownMenuBox
+import androidx.compose.material3.ExposedDropdownMenuDefaults
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.collectAsState
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
+import androidx.compose.foundation.layout.width
+import dev.grimoire.template.TemplateFields
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.unit.dp
@@ -52,11 +64,48 @@ fun EntityEditor(state: EntityEditorState, onDelete: () -> Unit, onOpenEntity: (
             label = { Text("Summary") }, minLines = 2,
             modifier = Modifier.fillMaxWidth(),
         )
+        AttributesPanel(state)
         OutlinedTextField(
             state.body, state::editBody,
             label = { Text("Notes") }, minLines = 12,
             modifier = Modifier.fillMaxWidth().heightIn(min = 300.dp),
         )
         RelationshipsPanel(state, onOpenEntity)
+    }
+}
+
+/** Template picker plus the attribute fields the chosen template declares. */
+@OptIn(ExperimentalMaterial3Api::class)
+@Composable
+private fun AttributesPanel(state: EntityEditorState) {
+    val options by state.templateOptions.collectAsState(initial = emptyList())
+    val selected = options.firstOrNull { it.id == state.templateId }
+    var open by remember { mutableStateOf(false) }
+
+    Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+        ExposedDropdownMenuBox(expanded = open, onExpandedChange = { open = it }, modifier = Modifier.width(320.dp)) {
+            OutlinedTextField(
+                value = selected?.name ?: "None",
+                onValueChange = {}, readOnly = true, singleLine = true,
+                label = { Text("Template") },
+                trailingIcon = { ExposedDropdownMenuDefaults.TrailingIcon(open) },
+                modifier = Modifier.menuAnchor(ExposedDropdownMenuAnchorType.PrimaryNotEditable),
+            )
+            ExposedDropdownMenu(expanded = open, onDismissRequest = { open = false }) {
+                DropdownMenuItem(text = { Text("None") }, onClick = { state.selectTemplate(null); open = false })
+                options.forEach { t ->
+                    DropdownMenuItem(text = { Text(t.name) }, onClick = { state.selectTemplate(t.id); open = false })
+                }
+            }
+        }
+        selected?.let { t ->
+            TemplateFields.decode(t.fields).forEach { f ->
+                OutlinedTextField(
+                    state.attributes[f.key].orEmpty(), { state.editAttribute(f.key, it) },
+                    label = { Text(f.label) }, singleLine = true,
+                    modifier = Modifier.fillMaxWidth(),
+                )
+            }
+        }
     }
 }

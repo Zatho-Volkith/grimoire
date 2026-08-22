@@ -16,6 +16,7 @@ import dev.grimoire.entity.EntityRepository
 import dev.grimoire.entity.EntityType
 import dev.grimoire.id.IdGenerator
 import dev.grimoire.relationship.RelationshipRepository
+import dev.grimoire.template.TemplateRepository
 import dev.grimoire.timeline.TimelineRepository
 import dev.grimoire.work.WorkRepository
 import dev.grimoire.ui.App
@@ -44,7 +45,8 @@ class WorkspaceScreenTest {
     private val relationships = RelationshipRepository(db, ids, System::currentTimeMillis)
     private val works = WorkRepository(db, ids, System::currentTimeMillis)
     private val timeline = TimelineRepository(db, ids, System::currentTimeMillis)
-    private val session = Session(worlds, entities, relationships, works, timeline, CoroutineScope(SupervisorJob() + Dispatchers.Default))
+    private val templates = TemplateRepository(db, ids, System::currentTimeMillis)
+    private val session = Session(worlds, entities, relationships, works, timeline, templates, CoroutineScope(SupervisorJob() + Dispatchers.Default))
 
     @Test
     fun `create world, add a location, rename it, find it by search`() {
@@ -157,5 +159,34 @@ class WorkspaceScreenTest {
         // Clicking the participant jumps to that entity in the Entities section.
         rule.onNode(hasTestTag("participant-link")).performClick()
         rule.waitUntil(5_000) { session.workspace?.editor?.id == kaede }
+    }
+
+    @Test
+    fun `a template's fields appear on matching entities and values persist`() {
+        val w = runBlocking { worlds.create("Arda") }
+        val kaede = runBlocking { entities.create(w, EntityType.CHARACTER, "Kaede") }
+        session.openWorld(w)
+        rule.setContent { App(session) }
+
+        rule.onNodeWithText("Templates").performClick()
+        rule.onNodeWithText("New Template").performClick()
+        rule.waitUntil(5_000) { session.workspace?.templateEditor?.loaded == true }
+        rule.onNode(hasSetTextAction() and hasText("New field")).performTextInput("Age")
+        rule.onNodeWithText("Add field").performClick()
+        runBlocking { session.flush() }
+        val templateId = session.workspace!!.templateEditor!!.id
+
+        session.workspace!!.open(kaede)
+        rule.waitUntil(5_000) { session.workspace?.editor?.loaded == true }
+        rule.onNodeWithText("None").performClick() // template dropdown
+        rule.waitUntilAtLeastOneExists(hasText("New Character template") and hasClickAction(), 5_000)
+        rule.onNode(hasText("New Character template") and hasClickAction()).performClick()
+        rule.waitUntilAtLeastOneExists(hasSetTextAction() and hasText("Age"), 5_000)
+        rule.onNode(hasSetTextAction() and hasText("Age")).performTextInput("27")
+        runBlocking { session.flush() }
+
+        val row = runBlocking { entities.entity(kaede).first() }!!
+        assertEquals(templateId, row.template_id)
+        assertEquals("""{"age":"27"}""", row.attributes)
     }
 }

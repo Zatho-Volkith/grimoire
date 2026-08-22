@@ -6,6 +6,7 @@ import app.cash.sqldelight.coroutines.mapToOneOrNull
 import dev.grimoire.db.Entity
 import dev.grimoire.db.GrimoireDatabase
 import dev.grimoire.id.IdGenerator
+import dev.grimoire.json.JsonStringMap
 import dev.grimoire.json.JsonStrings
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.Flow
@@ -44,13 +45,16 @@ class EntityRepository(
         id
     }
 
-    suspend fun updateContent(id: String, name: String, aliases: List<String>, summary: String?, body: String?) =
-        withContext(Dispatchers.IO) {
-            q.updateEntityContent(
-                name = name, aliases = JsonStrings.encode(aliases), summary = summary, body = body,
-                updated_at = clock(), id = id,
-            )
-        }
+    suspend fun updateContent(
+        id: String, name: String, aliases: List<String>, summary: String?, body: String?,
+        templateId: String?, attributes: Map<String, String>,
+    ) = withContext(Dispatchers.IO) {
+        q.updateEntityContent(
+            name = name, aliases = JsonStrings.encode(aliases), summary = summary, body = body,
+            template_id = templateId, attributes = JsonStringMap.encode(attributes),
+            updated_at = clock(), id = id,
+        )
+    }
 
     suspend fun softDelete(id: String) = withContext(Dispatchers.IO) {
         val now = clock()

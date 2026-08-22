@@ -31,6 +31,14 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import dev.grimoire.entity.EntityType
 import dev.grimoire.work.WorkStatus
+import androidx.compose.material3.DropdownMenuItem
+import androidx.compose.material3.ExperimentalMaterial3Api
+import androidx.compose.material3.ExposedDropdownMenuAnchorType
+import androidx.compose.material3.ExposedDropdownMenuBox
+import androidx.compose.material3.ExposedDropdownMenuDefaults
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
 
 @Composable
 fun WorkspaceScreen(session: Session, ws: WorkspaceState) {
@@ -69,6 +77,12 @@ fun WorkspaceScreen(session: Session, ws: WorkspaceState) {
                     icon = { Text("T", fontWeight = FontWeight.Bold) },
                     label = { Text("Timeline") },
                 )
+                NavigationRailItem(
+                    selected = ws.section == WorkspaceSection.TEMPLATES,
+                    onClick = ws::selectTemplates,
+                    icon = { Text("Tp", fontWeight = FontWeight.Bold) },
+                    label = { Text("Templates") },
+                )
             }
             VerticalDivider()
 
@@ -76,6 +90,7 @@ fun WorkspaceScreen(session: Session, ws: WorkspaceState) {
                 WorkspaceSection.ENTITIES -> EntitiesSection(ws)
                 WorkspaceSection.WORKS -> WorksSection(ws)
                 WorkspaceSection.TIMELINE -> TimelineSection(ws)
+                WorkspaceSection.TEMPLATES -> TemplatesSection(ws)
             }
         }
     }
@@ -191,6 +206,57 @@ private fun TimelineSection(ws: WorkspaceState) {
                 Modifier.align(Alignment.Center), style = MaterialTheme.typography.bodyLarge,
             )
             else -> EventEditor(ed, onDelete = ws::deleteOpenEvent, onMove = ws::moveOpenEvent, onOpenEntity = ws::open)
+        }
+    }
+}
+
+@OptIn(ExperimentalMaterial3Api::class)
+@Composable
+private fun TemplatesSection(ws: WorkspaceState) {
+    val templates by ws.templateList.collectAsState(initial = emptyList())
+    var typeMenuOpen by remember { mutableStateOf(false) }
+
+    Column(Modifier.width(300.dp).fillMaxHeight().padding(8.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
+        ExposedDropdownMenuBox(expanded = typeMenuOpen, onExpandedChange = { typeMenuOpen = it }) {
+            OutlinedTextField(
+                value = ws.templateType.label,
+                onValueChange = {}, readOnly = true, singleLine = true,
+                label = { Text("For entity type") },
+                trailingIcon = { ExposedDropdownMenuDefaults.TrailingIcon(typeMenuOpen) },
+                modifier = Modifier.fillMaxWidth().menuAnchor(ExposedDropdownMenuAnchorType.PrimaryNotEditable),
+            )
+            ExposedDropdownMenu(expanded = typeMenuOpen, onDismissRequest = { typeMenuOpen = false }) {
+                EntityType.entries.forEach { t ->
+                    DropdownMenuItem(text = { Text(t.label) }, onClick = { ws.selectTemplateType(t); typeMenuOpen = false })
+                }
+            }
+        }
+        Button(onClick = ws::createTemplate, modifier = Modifier.fillMaxWidth()) { Text("New Template") }
+        Text("${templates.size} template(s)", style = MaterialTheme.typography.labelMedium)
+        LazyColumn(Modifier.fillMaxSize()) {
+            items(templates, key = { it.id }) { t ->
+                val selected = ws.templateEditor?.id == t.id
+                Column(
+                    Modifier.fillMaxWidth()
+                        .background(if (selected) MaterialTheme.colorScheme.secondaryContainer else MaterialTheme.colorScheme.surface)
+                        .clickable { ws.openTemplate(t.id) }
+                        .padding(horizontal = 8.dp, vertical = 6.dp),
+                ) {
+                    Text(t.name, style = MaterialTheme.typography.bodyLarge, maxLines = 1)
+                    Text(EntityType.fromKey(t.entity_type).label, style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.outline)
+                }
+            }
+        }
+    }
+    VerticalDivider()
+
+    Box(Modifier.fillMaxSize()) {
+        when (val ed = ws.templateEditor) {
+            null -> Text(
+                "Select a template, or create a new one.",
+                Modifier.align(Alignment.Center), style = MaterialTheme.typography.bodyLarge,
+            )
+            else -> TemplateEditor(ed, onDelete = ws::deleteOpenTemplate)
         }
     }
 }

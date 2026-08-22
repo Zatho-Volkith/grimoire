@@ -5,6 +5,7 @@ import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.setValue
 import dev.grimoire.entity.EntityRepository
 import dev.grimoire.relationship.RelationshipRepository
+import dev.grimoire.template.TemplateRepository
 import dev.grimoire.timeline.TimelineRepository
 import dev.grimoire.work.WorkRepository
 import dev.grimoire.world.WorldRepository
@@ -18,11 +19,12 @@ class Session(
     val relationships: RelationshipRepository,
     val works: WorkRepository,
     val timeline: TimelineRepository,
+    val templates: TemplateRepository,
     private val scope: CoroutineScope,
 ) {
     var workspace by mutableStateOf<WorkspaceState?>(null); private set
 
-    fun openWorld(id: String) { workspace = WorkspaceState(id, entities, relationships, works, timeline, scope) }
+    fun openWorld(id: String) { workspace = WorkspaceState(id, entities, relationships, works, timeline, templates, scope) }
 
     fun closeWorld() {
         val ws = workspace ?: return
