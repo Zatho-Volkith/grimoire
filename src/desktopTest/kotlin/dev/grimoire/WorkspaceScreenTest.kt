@@ -16,6 +16,7 @@ import dev.grimoire.entity.EntityRepository
 import dev.grimoire.entity.EntityType
 import dev.grimoire.id.IdGenerator
 import dev.grimoire.relationship.RelationshipRepository
+import dev.grimoire.work.WorkRepository
 import dev.grimoire.ui.App
 import dev.grimoire.ui.Session
 import dev.grimoire.world.WorldRepository
@@ -40,7 +41,8 @@ class WorkspaceScreenTest {
     private val worlds = WorldRepository(db, ids, System::currentTimeMillis)
     private val entities = EntityRepository(db, ids, System::currentTimeMillis)
     private val relationships = RelationshipRepository(db, ids, System::currentTimeMillis)
-    private val session = Session(worlds, entities, relationships, CoroutineScope(SupervisorJob() + Dispatchers.Default))
+    private val works = WorkRepository(db, ids, System::currentTimeMillis)
+    private val session = Session(worlds, entities, relationships, works, CoroutineScope(SupervisorJob() + Dispatchers.Default))
 
     @Test
     fun `create world, add a location, rename it, find it by search`() {
@@ -95,5 +97,36 @@ class WorkspaceScreenTest {
         rule.onNode(hasTestTag("relationship-link") and hasText("Rin")).performClick()
         rule.waitUntil(5_000) { session.workspace?.editor?.id == rin }
         rule.waitUntilAtLeastOneExists(hasText("known by"), 5_000)
+    }
+
+    @Test
+    fun `create a work, write a chapter, add a second one and switch back`() {
+        val w = runBlocking { worlds.create("Arda") }
+        session.openWorld(w)
+        rule.setContent { App(session) }
+
+        rule.onNodeWithText("Works").performClick()
+        rule.onNodeWithText("New Work").performClick()
+        rule.waitUntil(5_000) { session.workspace?.workEditor?.chapterEditor?.loaded == true }
+
+        // The work opens straight into its auto-created first chapter.
+        rule.onNode(hasSetTextAction() and hasText("Body")).performTextInput("The road goes *ever* on.")
+        runBlocking { session.flush() }
+
+        val workEd = session.workspace!!.workEditor!!
+        val chapters = runBlocking { works.chapters(workEd.id).first() }
+        assertEquals(1, chapters.size)
+        assertEquals(5L, chapters.single().word_count)
+        assertEquals("The road goes *ever* on.", chapters.single().body)
+
+        rule.onNodeWithText("New chapter").performClick()
+        rule.waitUntil(5_000) { runBlocking { works.chapters(workEd.id).first() }.size == 2 }
+        rule.waitUntil(5_000) { session.workspace?.workEditor?.chapterEditor?.id == runBlocking { works.chapters(workEd.id).first() }[1].id }
+
+        rule.waitUntilAtLeastOneExists(hasText("Chapter 1"), 5_000)
+        rule.onNodeWithText("Chapter 1").performClick()
+        rule.waitUntil(5_000) {
+            session.workspace?.workEditor?.chapterEditor?.body == "The road goes *ever* on."
+        }
     }
 }

@@ -467,3 +467,49 @@ SELECT * FROM sync_queue
 WHERE next_retry_at IS NULL OR next_retry_at <= ?
 ORDER BY created_at
 LIMIT ?;
+
+
+-- --- Works & chapters -------------------------------------------------------
+
+worksForWorld:
+SELECT * FROM work
+WHERE world_id = ? AND deleted_at IS NULL
+ORDER BY updated_at DESC;
+
+workById:
+SELECT * FROM work WHERE id = ?;
+
+insertWork:
+INSERT INTO work (id, world_id, title, summary, kind, status, created_at, updated_at)
+VALUES (?, ?, ?, ?, ?, ?, ?, ?);
+
+updateWorkContent:
+UPDATE work SET title = ?, summary = ?, status = ?, updated_at = ? WHERE id = ?;
+
+softDeleteWork:
+UPDATE work SET deleted_at = ?, updated_at = ? WHERE id = ?;
+
+chaptersForWork:
+SELECT * FROM chapter
+WHERE work_id = ? AND deleted_at IS NULL
+ORDER BY sort_position;
+
+chapterById:
+SELECT * FROM chapter WHERE id = ?;
+
+-- Includes soft-deleted rows so a restored chapter can never collide.
+nextChapterPosition:
+SELECT COALESCE(MAX(sort_position), 0) + 1 FROM chapter WHERE work_id = ?;
+
+insertChapter:
+INSERT INTO chapter (id, work_id, title, body, sort_position, word_count, created_at, updated_at)
+VALUES (?, ?, ?, ?, ?, ?, ?, ?);
+
+updateChapterContent:
+UPDATE chapter SET title = ?, body = ?, word_count = ?, updated_at = ? WHERE id = ?;
+
+setChapterPosition:
+UPDATE chapter SET sort_position = ?, updated_at = ? WHERE id = ?;
+
+softDeleteChapter:
+UPDATE chapter SET deleted_at = ?, updated_at = ? WHERE id = ?;

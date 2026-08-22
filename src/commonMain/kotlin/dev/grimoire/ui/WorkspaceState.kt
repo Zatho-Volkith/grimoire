@@ -5,9 +5,11 @@ import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.setValue
 import androidx.compose.runtime.snapshotFlow
 import dev.grimoire.db.Entity
+import dev.grimoire.db.Work
 import dev.grimoire.entity.EntityRepository
 import dev.grimoire.entity.EntityType
 import dev.grimoire.relationship.RelationshipRepository
+import dev.grimoire.work.WorkRepository
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.FlowPreview
@@ -16,29 +18,40 @@ import kotlinx.coroutines.flow.debounce
 import kotlinx.coroutines.flow.flatMapLatest
 import kotlinx.coroutines.launch
 
-/** One open world: which type is browsed, what's searched, which entity is being edited. */
+/** Which kind of thing the workspace is browsing. */
+enum class WorkspaceSection { ENTITIES, WORKS }
+
+/** One open world: which section and type is browsed, what's searched, what's being edited. */
 class WorkspaceState(
     val worldId: String,
     private val entities: EntityRepository,
     private val relationships: RelationshipRepository,
+    private val works: WorkRepository,
     private val scope: CoroutineScope,
 ) {
+    var section by mutableStateOf(WorkspaceSection.ENTITIES); private set
     var type by mutableStateOf(EntityType.CHARACTER); private set
     var search by mutableStateOf(""); private set
     var editor by mutableStateOf<EntityEditorState?>(null); private set
+    var workEditor by mutableStateOf<WorkEditorState?>(null); private set
 
-    /** The list pane: search hits when a query is present, else the selected type. Live. */
+    /** The entity list pane: search hits when a query is present, else the selected type. Live. */
     @OptIn(ExperimentalCoroutinesApi::class, FlowPreview::class)
     val items: Flow<List<Entity>> =
         snapshotFlow { type to search }
             .debounce { (_, q) -> if (q.isBlank()) 0L else 150L }
             .flatMapLatest { (t, q) -> if (q.isBlank()) entities.byType(worldId, t) else entities.search(worldId, q) }
 
-    fun selectType(t: EntityType) { type = t; search = "" }
+    /** The works list pane. Live. */
+    val workList: Flow<List<Work>> = works.forWorld(worldId)
+
+    fun selectType(t: EntityType) { section = WorkspaceSection.ENTITIES; type = t; search = "" }
+    fun selectWorks() { section = WorkspaceSection.WORKS }
     fun searchFor(q: String) { search = q }
 
     fun open(id: String) {
         if (editor?.id == id) return
+        section = WorkspaceSection.ENTITIES
         val previous = editor
         val next = EntityEditorState(id, entities, relationships, scope)
         editor = next
@@ -64,5 +77,31 @@ class WorkspaceState(
         scope.launch { entities.softDelete(target.id) }
     }
 
-    suspend fun flush() { editor?.flush() }
+    // --- works ---
+
+    fun openWork(id: String) {
+        if (workEditor?.id == id) return
+        val previous = workEditor
+        val next = WorkEditorState(id, works, scope)
+        workEditor = next
+        scope.launch {
+            previous?.flush()
+            next.load()
+        }
+    }
+
+    fun createWork() {
+        scope.launch { openWork(works.create(worldId, "Untitled work")) }
+    }
+
+    fun deleteOpenWork() {
+        val target = workEditor ?: return
+        workEditor = null
+        scope.launch { works.softDeleteWork(target.id) }
+    }
+
+    suspend fun flush() {
+        editor?.flush()
+        workEditor?.flush()
+    }
 }
