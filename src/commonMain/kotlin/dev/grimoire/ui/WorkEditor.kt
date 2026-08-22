@@ -4,6 +4,8 @@ import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.ExperimentalLayoutApi
+import androidx.compose.foundation.layout.FlowRow
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxHeight
 import androidx.compose.foundation.layout.fillMaxSize
@@ -31,13 +33,15 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalClipboardManager
+import androidx.compose.ui.platform.testTag
+import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.AnnotatedString
 import androidx.compose.ui.unit.dp
 import dev.grimoire.work.WorkStatus
 
 /** One work: metadata row, chapter list, and the open chapter's Markdown editor. */
 @Composable
-fun WorkEditor(state: WorkEditorState, onDelete: () -> Unit) {
+fun WorkEditor(state: WorkEditorState, onDelete: () -> Unit, onOpenEntity: (String) -> Unit) {
     if (!state.loaded) return
     val chapters by state.chapters.collectAsState(initial = emptyList())
 
@@ -90,14 +94,14 @@ fun WorkEditor(state: WorkEditorState, onDelete: () -> Unit) {
                     "Select or create a chapter.",
                     Modifier.padding(24.dp), style = MaterialTheme.typography.bodyLarge,
                 )
-                else -> ChapterPane(ed, state)
+                else -> ChapterPane(ed, state, onOpenEntity)
             }
         }
     }
 }
 
 @Composable
-private fun ChapterPane(ed: ChapterEditorState, work: WorkEditorState) {
+private fun ChapterPane(ed: ChapterEditorState, work: WorkEditorState, onOpenEntity: (String) -> Unit) {
     if (!ed.loaded) return
     val clipboard = LocalClipboardManager.current
 
@@ -115,6 +119,7 @@ private fun ChapterPane(ed: ChapterEditorState, work: WorkEditorState) {
             TextButton(onClick = work::deleteOpenChapter) { Text("Delete", color = MaterialTheme.colorScheme.error) }
         }
         Text("${ed.wordCount} words · Markdown", style = MaterialTheme.typography.labelMedium, color = MaterialTheme.colorScheme.outline)
+        CastRow(ed, onOpenEntity)
         Row(Modifier.fillMaxWidth().weight(1f), horizontalArrangement = Arrangement.spacedBy(12.dp)) {
             OutlinedTextField(
                 ed.body, ed::editBody,
@@ -143,6 +148,49 @@ private fun StatusDropdown(state: WorkEditorState) {
         ExposedDropdownMenu(expanded = open, onDismissRequest = { open = false }) {
             WorkStatus.entries.forEach { s ->
                 DropdownMenuItem(text = { Text(s.label) }, onClick = { state.selectStatus(s); open = false })
+            }
+        }
+    }
+}
+
+/** Who's in this chapter. Members open their entity; typing searches the world to add more. */
+@OptIn(ExperimentalLayoutApi::class)
+@Composable
+private fun CastRow(ed: ChapterEditorState, onOpenEntity: (String) -> Unit) {
+    val cast by ed.cast.collectAsState(initial = emptyList())
+    var query by remember(ed.id) { mutableStateOf("") }
+    val candidates by remember(query) { ed.searchCast(query) }.collectAsState(initial = emptyList())
+
+    Column(verticalArrangement = Arrangement.spacedBy(2.dp)) {
+        FlowRow(horizontalArrangement = Arrangement.spacedBy(10.dp), verticalArrangement = Arrangement.spacedBy(2.dp)) {
+            Text("Cast:", style = MaterialTheme.typography.labelLarge, modifier = Modifier.padding(top = 14.dp))
+            cast.forEach { m ->
+                Row(verticalAlignment = Alignment.CenterVertically, modifier = Modifier.padding(top = 8.dp)) {
+                    Text(
+                        m.name, fontWeight = FontWeight.SemiBold,
+                        modifier = Modifier.testTag("cast-link").clickable { onOpenEntity(m.entity_id) },
+                    )
+                    Text(
+                        " ✕", color = MaterialTheme.colorScheme.outline,
+                        modifier = Modifier.clickable { ed.removeCast(m.entity_id) },
+                    )
+                }
+            }
+            OutlinedTextField(
+                query, { query = it },
+                label = { Text("Add to cast") }, singleLine = true,
+                modifier = Modifier.width(220.dp),
+            )
+        }
+        if (query.isNotBlank()) {
+            candidates.filter { c -> cast.none { it.entity_id == c.id } }.take(6).forEach { e ->
+                Row(
+                    Modifier.fillMaxWidth().clickable { ed.addCast(e.id); query = "" }.padding(horizontal = 8.dp, vertical = 2.dp),
+                    horizontalArrangement = Arrangement.spacedBy(8.dp),
+                ) {
+                    Text(e.name)
+                    Text(dev.grimoire.entity.EntityType.fromKey(e.type).label, style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.outline)
+                }
             }
         }
     }

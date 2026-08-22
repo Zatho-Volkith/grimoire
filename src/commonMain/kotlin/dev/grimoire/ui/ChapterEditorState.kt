@@ -3,6 +3,9 @@ package dev.grimoire.ui
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.setValue
+import dev.grimoire.db.CastForChapter
+import dev.grimoire.db.Entity
+import dev.grimoire.entity.EntityRepository
 import dev.grimoire.work.Ao3Markdown
 import dev.grimoire.work.WorkRepository
 import dev.grimoire.work.Words
@@ -11,6 +14,7 @@ import kotlinx.coroutines.Job
 import kotlinx.coroutines.NonCancellable
 import kotlinx.coroutines.cancelAndJoin
 import kotlinx.coroutines.delay
+import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
@@ -23,6 +27,8 @@ import kotlinx.coroutines.withContext
 class ChapterEditorState(
     val id: String,
     private val repo: WorkRepository,
+    private val entities: EntityRepository,
+    private val worldId: String,
     private val scope: CoroutineScope,
 ) {
     var loaded by mutableStateOf(false); private set
@@ -50,6 +56,21 @@ class ChapterEditorState(
 
     /** The current body rendered as AO3-ready HTML, for pasting into the AO3 work form. */
     fun ao3Html(): String = Ao3Markdown.toHtml(body)
+
+    // --- cast: written straight through (no debounce), like relationships.
+
+    val cast: Flow<List<CastForChapter>> = repo.cast(id)
+
+    /** Candidate cast members: live entity search over the world. */
+    fun searchCast(text: String): Flow<List<Entity>> = entities.search(worldId, text)
+
+    fun addCast(entityId: String) {
+        scope.launch { repo.addAppearance(id, entityId) }
+    }
+
+    fun removeCast(entityId: String) {
+        scope.launch { repo.removeAppearance(id, entityId) }
+    }
 
     suspend fun flush() {
         saveJob?.cancelAndJoin()

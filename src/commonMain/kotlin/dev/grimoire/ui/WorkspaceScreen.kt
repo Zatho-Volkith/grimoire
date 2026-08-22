@@ -152,7 +152,7 @@ private fun EntitiesSection(ws: WorkspaceState) {
                 "Select an entity, or create a new ${ws.type.label.lowercase()}.",
                 Modifier.align(Alignment.Center), style = MaterialTheme.typography.bodyLarge,
             )
-            else -> EntityEditor(ed, onDelete = ws::deleteOpenEntity, onOpenEntity = ws::open)
+            else -> EntityEditor(ed, onDelete = ws::deleteOpenEntity, onOpenEntity = ws::open, onOpenChapter = { w, c -> ws.openWork(w, c) })
         }
     }
 }
@@ -187,7 +187,7 @@ private fun WorksSection(ws: WorkspaceState) {
                 "Select a work, or create a new one.",
                 Modifier.align(Alignment.Center), style = MaterialTheme.typography.bodyLarge,
             )
-            else -> WorkEditor(ed, onDelete = ws::deleteOpenWork)
+            else -> WorkEditor(ed, onDelete = ws::deleteOpenWork, onOpenEntity = ws::open)
         }
     }
 }

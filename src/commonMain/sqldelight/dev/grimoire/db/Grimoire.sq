@@ -645,3 +645,33 @@ SELECT * FROM template WHERE world_id = ? AND deleted_at IS NOT NULL ORDER BY de
 
 restoreTemplate:
 UPDATE template SET deleted_at = NULL, updated_at = ? WHERE id = ?;
+
+
+-- --- Appearances (who shows up in which chapter) ----------------------------
+
+-- Re-adding a previously removed cast member revives its tombstoned row.
+upsertAppearance:
+INSERT INTO entity_appearance (entity_id, chapter_id, note, created_at, updated_at)
+VALUES (?, ?, ?, ?, ?)
+ON CONFLICT(entity_id, chapter_id) DO UPDATE SET
+    note = excluded.note, deleted_at = NULL, updated_at = excluded.updated_at;
+
+softDeleteAppearance:
+UPDATE entity_appearance SET deleted_at = ?, updated_at = ? WHERE entity_id = ? AND chapter_id = ?;
+
+castForChapter:
+SELECT a.entity_id, a.note, e.name, e.type
+FROM entity_appearance a
+JOIN entity e ON e.id = a.entity_id
+WHERE a.chapter_id = ? AND a.deleted_at IS NULL AND e.deleted_at IS NULL
+ORDER BY e.name;
+
+-- "Every scene Kaede is in": chapters (with their work) that cast this entity.
+appearancesForEntity:
+SELECT a.chapter_id, a.note, c.title AS chapter_title, c.sort_position,
+       w.id AS work_id, w.title AS work_title
+FROM entity_appearance a
+JOIN chapter c ON c.id = a.chapter_id
+JOIN work w ON w.id = c.work_id
+WHERE a.entity_id = ? AND a.deleted_at IS NULL AND c.deleted_at IS NULL AND w.deleted_at IS NULL
+ORDER BY w.title, c.sort_position;

@@ -4,6 +4,7 @@ import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.setValue
 import dev.grimoire.db.Chapter
+import dev.grimoire.entity.EntityRepository
 import dev.grimoire.work.WorkRepository
 import dev.grimoire.work.WorkStatus
 import kotlinx.coroutines.CoroutineScope
@@ -23,7 +24,9 @@ import kotlinx.coroutines.withContext
 class WorkEditorState(
     val id: String,
     private val repo: WorkRepository,
+    private val entities: EntityRepository,
     private val scope: CoroutineScope,
+    private val initialChapterId: String? = null,
 ) {
     var loaded by mutableStateOf(false); private set
     var title by mutableStateOf(""); private set
@@ -31,6 +34,7 @@ class WorkEditorState(
     var status by mutableStateOf(WorkStatus.DRAFT); private set
     var dirty by mutableStateOf(false); private set
     var chapterEditor by mutableStateOf<ChapterEditorState?>(null); private set
+    var worldId: String = ""; private set
 
     val chapters: Flow<List<Chapter>> = repo.chapters(id)
 
@@ -38,11 +42,13 @@ class WorkEditorState(
 
     suspend fun load() {
         val w = repo.work(id).first() ?: return
+        worldId = w.world_id
         title = w.title
         summary = w.summary.orEmpty()
         status = WorkStatus.fromKey(w.status)
         loaded = true
-        repo.chapters(id).first().firstOrNull()?.let { openChapter(it.id) }
+        val target = initialChapterId ?: repo.chapters(id).first().firstOrNull()?.id
+        target?.let { openChapter(it) }
     }
 
     fun editTitle(v: String) = edit { title = v }
@@ -54,7 +60,7 @@ class WorkEditorState(
     fun openChapter(chapterId: String) {
         if (chapterEditor?.id == chapterId) return
         val previous = chapterEditor
-        val next = ChapterEditorState(chapterId, repo, scope)
+        val next = ChapterEditorState(chapterId, repo, entities, worldId, scope)
         chapterEditor = next
         scope.launch {
             previous?.flush()

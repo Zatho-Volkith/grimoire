@@ -27,12 +27,15 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.foundation.layout.width
 import dev.grimoire.template.TemplateFields
+import androidx.compose.foundation.clickable
+import androidx.compose.ui.platform.testTag
+import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.unit.dp
 
 @Composable
-fun EntityEditor(state: EntityEditorState, onDelete: () -> Unit, onOpenEntity: (String) -> Unit) {
+fun EntityEditor(state: EntityEditorState, onDelete: () -> Unit, onOpenEntity: (String) -> Unit, onOpenChapter: (String, String) -> Unit) {
     if (!state.loaded) return
 
     Column(
@@ -71,6 +74,7 @@ fun EntityEditor(state: EntityEditorState, onDelete: () -> Unit, onOpenEntity: (
             modifier = Modifier.fillMaxWidth().heightIn(min = 300.dp),
         )
         RelationshipsPanel(state, onOpenEntity)
+        AppearancesPanel(state, onOpenChapter)
     }
 }
 
@@ -106,6 +110,24 @@ private fun AttributesPanel(state: EntityEditorState) {
                     modifier = Modifier.fillMaxWidth(),
                 )
             }
+        }
+    }
+}
+
+/** Chapters that cast this entity. Managed from the chapter side; rows jump straight there. */
+@Composable
+private fun AppearancesPanel(state: EntityEditorState, onOpenChapter: (String, String) -> Unit) {
+    val rows by state.appearances.collectAsState(initial = emptyList())
+    if (rows.isEmpty()) return
+
+    Column(verticalArrangement = Arrangement.spacedBy(4.dp)) {
+        Text("Appears in", style = MaterialTheme.typography.titleMedium)
+        rows.forEach { a ->
+            Text(
+                "${a.work_title} — ${a.chapter_title ?: "Untitled chapter"}",
+                fontWeight = FontWeight.SemiBold,
+                modifier = Modifier.testTag("appearance-link").clickable { onOpenChapter(a.work_id, a.chapter_id) },
+            )
         }
     }
 }

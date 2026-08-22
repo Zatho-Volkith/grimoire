@@ -3,6 +3,8 @@ package dev.grimoire.work
 import app.cash.sqldelight.coroutines.asFlow
 import app.cash.sqldelight.coroutines.mapToList
 import app.cash.sqldelight.coroutines.mapToOneOrNull
+import dev.grimoire.db.AppearancesForEntity
+import dev.grimoire.db.CastForChapter
 import dev.grimoire.db.Chapter
 import dev.grimoire.db.DeletedChaptersForWorld
 import dev.grimoire.db.DeletedWorksForWorld
@@ -98,6 +100,27 @@ class WorkRepository(
     suspend fun softDeleteChapter(id: String) = withContext(Dispatchers.IO) {
         val now = clock()
         q.softDeleteChapter(deleted_at = now, updated_at = now, id = id)
+    }
+
+    // --- appearances ---
+
+    /** The chapter's cast, alphabetical. */
+    fun cast(chapterId: String): Flow<List<CastForChapter>> =
+        q.castForChapter(chapterId).asFlow().mapToList(Dispatchers.IO)
+
+    /** Every chapter (with its work) that casts [entityId], in reading order per work. */
+    fun appearances(entityId: String): Flow<List<AppearancesForEntity>> =
+        q.appearancesForEntity(entityId).asFlow().mapToList(Dispatchers.IO)
+
+    /** Adds (or revives) [entityId] in the chapter's cast. */
+    suspend fun addAppearance(chapterId: String, entityId: String) = withContext(Dispatchers.IO) {
+        val now = clock()
+        q.upsertAppearance(entity_id = entityId, chapter_id = chapterId, note = null, created_at = now, updated_at = now)
+    }
+
+    suspend fun removeAppearance(chapterId: String, entityId: String) = withContext(Dispatchers.IO) {
+        val now = clock()
+        q.softDeleteAppearance(deleted_at = now, updated_at = now, entity_id = entityId, chapter_id = chapterId)
     }
 
     // --- trash ---

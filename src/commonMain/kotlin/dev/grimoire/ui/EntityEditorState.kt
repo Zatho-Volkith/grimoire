@@ -3,6 +3,7 @@ package dev.grimoire.ui
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.setValue
+import dev.grimoire.db.AppearancesForEntity
 import dev.grimoire.db.Entity
 import dev.grimoire.db.Template
 import dev.grimoire.db.RelationshipsFor
@@ -11,6 +12,7 @@ import dev.grimoire.entity.EntityType
 import dev.grimoire.json.JsonStringMap
 import dev.grimoire.json.JsonStrings
 import dev.grimoire.template.TemplateRepository
+import dev.grimoire.work.WorkRepository
 import dev.grimoire.relationship.RelationshipKind
 import dev.grimoire.relationship.RelationshipRepository
 import kotlinx.coroutines.CoroutineScope
@@ -35,6 +37,7 @@ class EntityEditorState(
     private val repo: EntityRepository,
     private val relationships: RelationshipRepository,
     private val templates: TemplateRepository,
+    private val works: WorkRepository,
     private val scope: CoroutineScope,
 ) {
     var loaded by mutableStateOf(false); private set
@@ -76,6 +79,9 @@ class EntityEditorState(
     // --- Relationships: written straight through (no debounce), so no flush involvement.
 
     val relationshipList: Flow<List<RelationshipsFor>> = relationships.forEntity(id)
+
+    /** Chapters that cast this entity, managed from the chapter side; read-only here. */
+    val appearances: Flow<List<AppearancesForEntity>> = works.appearances(id)
 
     /** Candidate targets for a new relationship: live search over the world, minus this entity. */
     fun searchTargets(text: String): Flow<List<Entity>> =

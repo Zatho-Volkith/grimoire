@@ -4,6 +4,7 @@ import dev.grimoire.db.GrimoireDatabase
 import dev.grimoire.ui.ChapterEditorState
 import dev.grimoire.work.WorkRepository
 import dev.grimoire.work.WorkStatus
+import dev.grimoire.entity.EntityRepository
 import dev.grimoire.world.WorldRepository
 import dev.grimoire.id.IdGenerator
 import kotlinx.coroutines.flow.first
@@ -20,6 +21,7 @@ class WorkRepositoryTest {
     private val db = GrimoireDatabase(DriverFactory.create(createTempDirectory("grimoire-test").resolve("g.db")))
     private val worlds = WorldRepository(db, ids) { 1L }
     private val works = WorkRepository(db, ids) { 1L }
+    private val entities = EntityRepository(db, ids) { 1L }
 
     @Test
     fun `a new work starts as a draft with one empty chapter`() = runTest {
@@ -101,7 +103,7 @@ class WorkRepositoryTest {
         val work = works.create(w, "Fic")
         val c1 = works.chapters(work).first().single().id
 
-        val editor = ChapterEditorState(c1, works, backgroundScope)
+        val editor = ChapterEditorState(c1, works, entities, w, backgroundScope)
         editor.load()
         editor.editTitle("Departure")
         editor.editBody("She left at dawn.")

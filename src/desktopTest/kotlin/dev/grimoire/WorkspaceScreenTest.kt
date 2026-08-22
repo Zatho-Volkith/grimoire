@@ -10,6 +10,7 @@ import androidx.compose.ui.test.hasText
 import androidx.compose.ui.test.junit4.createComposeRule
 import androidx.compose.ui.test.onNodeWithText
 import androidx.compose.ui.test.performClick
+import androidx.compose.ui.test.performScrollTo
 import androidx.compose.ui.test.performTextClearance
 import androidx.compose.ui.test.performTextInput
 import dev.grimoire.db.GrimoireDatabase
@@ -24,6 +25,7 @@ import dev.grimoire.timeline.TimelineRepository
 import dev.grimoire.work.WorkRepository
 import dev.grimoire.ui.App
 import dev.grimoire.ui.Session
+import dev.grimoire.ui.WorkspaceSection
 import dev.grimoire.world.WorldRepository
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
@@ -261,5 +263,38 @@ class WorkspaceScreenTest {
         rule.onNodeWithText("Restore").performClick()
         rule.waitUntil(5_000) { runBlocking { entities.byType(w, EntityType.CHARACTER).first() }.size == 1 }
         rule.waitUntilAtLeastOneExists(hasText("Trash is empty."), 5_000)
+    }
+
+    @Test
+    fun `cast links chapter and entity in both directions`() {
+        val w = runBlocking { worlds.create("Arda") }
+        val kaede = runBlocking { entities.create(w, EntityType.CHARACTER, "Kaede") }
+        val work = runBlocking { works.create(w, "Fic") }
+        val chapter = runBlocking { works.chapters(work).first() }.single().id
+        session.openWorld(w)
+        rule.setContent { App(session) }
+
+        session.workspace!!.openWork(work)
+        rule.waitUntil(5_000) { session.workspace?.workEditor?.chapterEditor?.loaded == true }
+
+        // Add Kaede to the cast via search.
+        rule.onNode(hasSetTextAction() and hasText("Add to cast")).performTextInput("kae")
+        rule.waitUntilAtLeastOneExists(hasText("Kaede") and hasClickAction(), 5_000)
+        rule.onNode(hasText("Kaede") and hasClickAction()).performClick()
+        rule.waitUntil(5_000) { runBlocking { works.cast(chapter).first() }.size == 1 }
+
+        // Cast name jumps to the entity...
+        rule.waitUntilAtLeastOneExists(hasTestTag("cast-link"), 5_000)
+        rule.onNode(hasTestTag("cast-link")).performClick()
+        rule.waitUntil(5_000) { session.workspace?.editor?.id == kaede }
+
+        // ...and its "Appears in" row jumps back to that work and chapter.
+        rule.waitUntilAtLeastOneExists(hasTestTag("appearance-link"), 5_000)
+        rule.onNode(hasTestTag("appearance-link")).performScrollTo().performClick()
+        rule.waitUntil(5_000) {
+            session.workspace?.section == WorkspaceSection.WORKS &&
+                session.workspace?.workEditor?.id == work &&
+                session.workspace?.workEditor?.chapterEditor?.id == chapter
+        }
     }
 }

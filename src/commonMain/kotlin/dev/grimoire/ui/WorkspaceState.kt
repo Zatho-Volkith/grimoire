@@ -114,7 +114,7 @@ class WorkspaceState(
         if (editor?.id == id) return
         section = WorkspaceSection.ENTITIES
         val previous = editor
-        val next = EntityEditorState(id, entities, relationships, templates, scope)
+        val next = EntityEditorState(id, entities, relationships, templates, works, scope)
         editor = next
         scope.launch {
             previous?.flush()
@@ -140,10 +140,14 @@ class WorkspaceState(
 
     // --- works ---
 
-    fun openWork(id: String) {
-        if (workEditor?.id == id) return
+    fun openWork(id: String, chapterId: String? = null) {
+        section = WorkspaceSection.WORKS
+        if (workEditor?.id == id) {
+            chapterId?.let { workEditor?.openChapter(it) }
+            return
+        }
         val previous = workEditor
-        val next = WorkEditorState(id, works, scope)
+        val next = WorkEditorState(id, works, entities, scope, chapterId)
         workEditor = next
         scope.launch {
             previous?.flush()
