@@ -5,6 +5,7 @@ import androidx.compose.ui.test.assertIsDisplayed
 import androidx.compose.ui.test.hasClickAction
 import androidx.compose.ui.test.hasSetTextAction
 import androidx.compose.ui.test.hasTestTag
+import androidx.compose.ui.test.onNodeWithTag
 import androidx.compose.ui.test.hasText
 import androidx.compose.ui.test.junit4.createComposeRule
 import androidx.compose.ui.test.onNodeWithText
@@ -202,5 +203,27 @@ class WorkspaceScreenTest {
 
         rule.onNodeWithText("Export").performClick()
         rule.waitUntilAtLeastOneExists(hasText("Exported 1 file(s) to /fake/vault"), 5_000)
+    }
+
+    @Test
+    fun `chapter preview renders markdown live while typing`() {
+        val w = runBlocking { worlds.create("Arda") }
+        session.openWorld(w)
+        rule.setContent { App(session) }
+
+        rule.onNodeWithText("Works").performClick()
+        rule.onNodeWithText("New Work").performClick()
+        rule.waitUntil(5_000) { session.workspace?.workEditor?.chapterEditor?.loaded == true }
+
+        rule.onNode(hasSetTextAction() and hasText("Body")).performTextInput("Hello *world*\n\n---\n\nThe end.")
+
+        // The preview shows the rendered text (no asterisks) and a real divider for ---.
+        rule.waitUntilAtLeastOneExists(hasText("Hello world"), 5_000)
+        rule.waitUntilAtLeastOneExists(hasText("The end."), 5_000)
+        rule.onNodeWithTag("md-hr", useUnmergedTree = true).assertExists()
+
+        // Hiding the preview removes it.
+        rule.onNodeWithText("Hide preview").performClick()
+        rule.waitUntil(5_000) { session.workspace?.workEditor?.chapterEditor?.showPreview == false }
     }
 }

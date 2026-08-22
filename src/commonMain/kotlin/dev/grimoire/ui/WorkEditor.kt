@@ -111,14 +111,20 @@ private fun ChapterPane(ed: ChapterEditorState, work: WorkEditorState) {
             TextButton(onClick = { work.moveOpenChapter(-1) }) { Text("Move up") }
             TextButton(onClick = { work.moveOpenChapter(1) }) { Text("Move down") }
             TextButton(onClick = { clipboard.setText(AnnotatedString(ed.ao3Html())) }) { Text("Copy AO3 HTML") }
+            TextButton(onClick = ed::togglePreview) { Text(if (ed.showPreview) "Hide preview" else "Preview") }
             TextButton(onClick = work::deleteOpenChapter) { Text("Delete", color = MaterialTheme.colorScheme.error) }
         }
         Text("${ed.wordCount} words · Markdown", style = MaterialTheme.typography.labelMedium, color = MaterialTheme.colorScheme.outline)
-        OutlinedTextField(
-            ed.body, ed::editBody,
-            label = { Text("Body") },
-            modifier = Modifier.fillMaxWidth().weight(1f),
-        )
+        Row(Modifier.fillMaxWidth().weight(1f), horizontalArrangement = Arrangement.spacedBy(12.dp)) {
+            OutlinedTextField(
+                ed.body, ed::editBody,
+                label = { Text("Body") },
+                modifier = Modifier.weight(1f).fillMaxHeight(),
+            )
+            if (ed.showPreview) {
+                MarkdownPreview(ed.body, Modifier.weight(1f).fillMaxHeight().padding(top = 8.dp))
+            }
+        }
     }
 }
 

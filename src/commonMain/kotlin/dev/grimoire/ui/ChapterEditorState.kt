@@ -29,6 +29,8 @@ class ChapterEditorState(
     var title by mutableStateOf(""); private set
     var body by mutableStateOf(""); private set
     var dirty by mutableStateOf(false); private set
+    /** Whether the live preview pane is shown beside the editor. UI-only; never saved. */
+    var showPreview by mutableStateOf(true); private set
 
     /** Live word count of the unsaved body — what the status row shows while typing. */
     val wordCount: Long get() = Words.count(body)
@@ -43,6 +45,7 @@ class ChapterEditorState(
     }
 
     fun editTitle(v: String) = edit { title = v }
+    fun togglePreview() { showPreview = !showPreview }
     fun editBody(v: String) = edit { body = v }
 
     /** The current body rendered as AO3-ready HTML, for pasting into the AO3 work form. */
