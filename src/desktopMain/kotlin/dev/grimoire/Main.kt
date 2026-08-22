@@ -15,6 +15,7 @@ import dev.grimoire.timeline.TimelineRepository
 import dev.grimoire.work.WorkRepository
 import dev.grimoire.ui.App
 import dev.grimoire.ui.Session
+import dev.grimoire.ui.handleShortcut
 import dev.grimoire.world.WorldRepository
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
@@ -46,6 +47,7 @@ fun main() {
             },
             title = "Grimoire",
             state = rememberWindowState(size = DpSize(1200.dp, 800.dp)),
+            onPreviewKeyEvent = { handleShortcut(session, it) },
         ) {
             App(session)
         }

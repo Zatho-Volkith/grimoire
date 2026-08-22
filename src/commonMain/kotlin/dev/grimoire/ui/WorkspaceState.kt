@@ -49,6 +49,8 @@ class WorkspaceState(
     /** Which entity type a template created from the Templates section applies to. */
     var templateType by mutableStateOf(EntityType.CHARACTER); private set
     var exportStatus by mutableStateOf<String?>(null); private set
+    /** Bumped by [focusSearch]; the screen observes it to move focus into the search field. */
+    var focusSearchTick by mutableStateOf(0); private set
 
     /** The entity list pane: search hits when a query is present, else the selected type. Live. */
     @OptIn(ExperimentalCoroutinesApi::class, FlowPreview::class)
@@ -72,6 +74,21 @@ class WorkspaceState(
     fun selectTemplates() { section = WorkspaceSection.TEMPLATES }
     fun selectTemplateType(t: EntityType) { templateType = t }
     fun searchFor(q: String) { search = q }
+
+    fun focusSearch() {
+        section = WorkspaceSection.ENTITIES
+        focusSearchTick++
+    }
+
+    /** Closes whichever editor the active section has open, flushing its pending edits. */
+    fun closeCurrent() {
+        when (section) {
+            WorkspaceSection.ENTITIES -> close()
+            WorkspaceSection.WORKS -> { val p = workEditor ?: return; workEditor = null; scope.launch { p.flush() } }
+            WorkspaceSection.TIMELINE -> { val p = eventEditor ?: return; eventEditor = null; scope.launch { p.flush() } }
+            WorkspaceSection.TEMPLATES -> { val p = templateEditor ?: return; templateEditor = null; scope.launch { p.flush() } }
+        }
+    }
 
     fun open(id: String) {
         if (editor?.id == id) return

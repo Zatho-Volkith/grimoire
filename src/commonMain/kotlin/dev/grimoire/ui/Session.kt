@@ -40,6 +40,9 @@ class Session(
         scope.launch { openWorld(worlds.create(name)) }
     }
 
+    /** Fire-and-forget flush — the Ctrl+S path. */
+    fun saveNow() { scope.launch { flush() } }
+
     /** Call before the process exits so a pending debounced save is not lost. */
     suspend fun flush() { workspace?.flush() }
 }

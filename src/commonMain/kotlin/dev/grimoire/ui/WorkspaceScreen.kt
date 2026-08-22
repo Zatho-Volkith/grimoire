@@ -24,10 +24,13 @@ import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.material3.VerticalDivider
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.focus.FocusRequester
+import androidx.compose.ui.focus.focusRequester
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import dev.grimoire.entity.EntityType
@@ -103,12 +106,14 @@ fun WorkspaceScreen(session: Session, ws: WorkspaceState) {
 @Composable
 private fun EntitiesSection(ws: WorkspaceState) {
     val items by ws.items.collectAsState(initial = emptyList())
+    val searchFocus = remember { FocusRequester() }
+    LaunchedEffect(ws.focusSearchTick) { if (ws.focusSearchTick > 0) searchFocus.requestFocus() }
 
     Column(Modifier.width(300.dp).fillMaxHeight().padding(8.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
         OutlinedTextField(
             ws.search, ws::searchFor,
             label = { Text("Search all entities") }, singleLine = true,
-            modifier = Modifier.fillMaxWidth(),
+            modifier = Modifier.fillMaxWidth().focusRequester(searchFocus),
         )
         Button(onClick = ws::createEntity, modifier = Modifier.fillMaxWidth()) { Text("New ${ws.type.label}") }
         Text(
