@@ -8,7 +8,7 @@ plugins {
 }
 
 group = "dev.grimoire"
-version = "0.3.1"
+version = "0.3.2"
 
 kotlin {
     jvmToolchain(21)
@@ -64,6 +64,22 @@ compose.desktop {
         nativeDistributions {
             targetFormats(TargetFormat.Deb, TargetFormat.Msi, TargetFormat.Dmg)
             packageName = "grimoire"
+            description = "Local-first worldbuilding and writing for fanfic and original fiction"
+            vendor = "Grimoire"
+
+            // MSI/DMG versions must have MAJOR >= 1, so installers use the build counter
+            // ("1.0.<build>") while the app itself keeps the real semver. Deb takes semver as-is.
+            val installerVersion = "1.0.${file("VERSION").readText().trim()}"
+            windows {
+                msiPackageVersion = installerVersion
+                menu = true
+                shortcut = true
+                // Stable across releases so a newer MSI upgrades an older install in place.
+                upgradeUuid = "69e2a6ee-3ab2-4907-9f4c-c005a2014847"
+            }
+            macOS {
+                dmgPackageVersion = installerVersion
+            }
         }
     }
 }
