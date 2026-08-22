@@ -8,7 +8,7 @@ plugins {
 }
 
 group = "dev.grimoire"
-version = "0.3.2"
+version = "0.4.0"
 
 kotlin {
     jvmToolchain(21)
@@ -67,8 +67,9 @@ compose.desktop {
             description = "Local-first worldbuilding and writing for fanfic and original fiction"
             vendor = "Grimoire"
 
-            // MSI/DMG versions must have MAJOR >= 1, so installers use the build counter
-            // ("1.0.<build>") while the app itself keeps the real semver. Deb takes semver as-is.
+            // jpackage requires MAJOR >= 1 for MSI ProductVersions and for the whole macOS
+            // .app/DMG, so those use the build counter ("1.0.<build>") while the app keeps the
+            // real semver. Deb takes semver as-is.
             val installerVersion = "1.0.${file("VERSION").readText().trim()}"
             windows {
                 msiPackageVersion = installerVersion
@@ -78,7 +79,7 @@ compose.desktop {
                 upgradeUuid = "69e2a6ee-3ab2-4907-9f4c-c005a2014847"
             }
             macOS {
-                dmgPackageVersion = installerVersion
+                packageVersion = installerVersion // applies to the .app bundle AND the dmg
             }
         }
     }
