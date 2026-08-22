@@ -16,6 +16,8 @@ import dev.grimoire.entity.EntityRepository
 import dev.grimoire.entity.EntityType
 import dev.grimoire.id.IdGenerator
 import dev.grimoire.relationship.RelationshipRepository
+import dev.grimoire.export.ExportSink
+import dev.grimoire.export.WorldExporter
 import dev.grimoire.template.TemplateRepository
 import dev.grimoire.timeline.TimelineRepository
 import dev.grimoire.work.WorkRepository
@@ -46,7 +48,9 @@ class WorkspaceScreenTest {
     private val works = WorkRepository(db, ids, System::currentTimeMillis)
     private val timeline = TimelineRepository(db, ids, System::currentTimeMillis)
     private val templates = TemplateRepository(db, ids, System::currentTimeMillis)
-    private val session = Session(worlds, entities, relationships, works, timeline, templates, CoroutineScope(SupervisorJob() + Dispatchers.Default))
+    private val session = Session(
+        worlds, entities, relationships, works, timeline, templates,
+        WorldExporter(db), ExportSink { _, _ -> "/fake/vault" }, CoroutineScope(SupervisorJob() + Dispatchers.Default))
 
     @Test
     fun `create world, add a location, rename it, find it by search`() {
@@ -188,5 +192,15 @@ class WorkspaceScreenTest {
         val row = runBlocking { entities.entity(kaede).first() }!!
         assertEquals(templateId, row.template_id)
         assertEquals("""{"age":"27"}""", row.attributes)
+    }
+
+    @Test
+    fun `export button reports the destination from the sink`() {
+        val w = runBlocking { worlds.create("Arda") }
+        session.openWorld(w)
+        rule.setContent { App(session) }
+
+        rule.onNodeWithText("Export").performClick()
+        rule.waitUntilAtLeastOneExists(hasText("Exported 1 file(s) to /fake/vault"), 5_000)
     }
 }

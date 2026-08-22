@@ -9,6 +9,8 @@ import dev.grimoire.db.Template
 import dev.grimoire.db.Timeline_event
 import dev.grimoire.db.Work
 import dev.grimoire.entity.EntityRepository
+import dev.grimoire.export.ExportSink
+import dev.grimoire.export.WorldExporter
 import dev.grimoire.entity.EntityType
 import dev.grimoire.relationship.RelationshipRepository
 import dev.grimoire.template.TemplateRepository
@@ -33,6 +35,8 @@ class WorkspaceState(
     private val works: WorkRepository,
     private val timeline: TimelineRepository,
     private val templates: TemplateRepository,
+    private val exporter: WorldExporter,
+    private val exportSink: ExportSink,
     private val scope: CoroutineScope,
 ) {
     var section by mutableStateOf(WorkspaceSection.ENTITIES); private set
@@ -44,6 +48,7 @@ class WorkspaceState(
     var templateEditor by mutableStateOf<TemplateEditorState?>(null); private set
     /** Which entity type a template created from the Templates section applies to. */
     var templateType by mutableStateOf(EntityType.CHARACTER); private set
+    var exportStatus by mutableStateOf<String?>(null); private set
 
     /** The entity list pane: search hits when a query is present, else the selected type. Live. */
     @OptIn(ExperimentalCoroutinesApi::class, FlowPreview::class)
@@ -169,6 +174,17 @@ class WorkspaceState(
         val target = templateEditor ?: return
         templateEditor = null
         scope.launch { templates.softDelete(target.id) }
+    }
+
+    /** Flushes pending edits, renders the world as a Markdown vault, and hands it to the sink. */
+    fun exportWorld(worldName: String) {
+        scope.launch {
+            flush()
+            val files = exporter.export(worldId)
+            exportSink.write(worldName, files)?.let { destination ->
+                exportStatus = "Exported ${files.size} file(s) to $destination"
+            }
+        }
     }
 
     suspend fun flush() {

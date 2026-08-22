@@ -6,6 +6,7 @@ import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxHeight
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
@@ -52,6 +53,9 @@ fun WorkspaceScreen(session: Session, ws: WorkspaceState) {
         ) {
             TextButton(onClick = session::closeWorld) { Text("← Worlds") }
             Text(world?.name ?: "", style = MaterialTheme.typography.titleLarge)
+            Spacer(Modifier.weight(1f))
+            ws.exportStatus?.let { Text(it, style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.outline) }
+            TextButton(onClick = { ws.exportWorld(world?.name ?: "World") }) { Text("Export") }
         }
         HorizontalDivider()
 

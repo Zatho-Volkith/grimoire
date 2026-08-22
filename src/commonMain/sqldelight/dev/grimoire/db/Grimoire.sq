@@ -581,3 +581,31 @@ UPDATE template SET name = ?, fields = ?, updated_at = ? WHERE id = ?;
 
 softDeleteTemplate:
 UPDATE template SET deleted_at = ?, updated_at = ? WHERE id = ?;
+
+
+-- --- Export (whole-world bulk reads) ----------------------------------------
+
+entitiesForWorld:
+SELECT * FROM entity
+WHERE world_id = ? AND deleted_at IS NULL
+ORDER BY type, name;
+
+relationshipsForWorld:
+SELECT r.from_entity, r.to_entity, r.kind, r.label, r.inverse_label
+FROM relationship r
+JOIN entity ef ON ef.id = r.from_entity
+JOIN entity et ON et.id = r.to_entity
+WHERE r.world_id = ? AND r.deleted_at IS NULL AND ef.deleted_at IS NULL AND et.deleted_at IS NULL;
+
+participantsForWorld:
+SELECT p.event_id, p.entity_id, p.role
+FROM event_participant p
+JOIN timeline_event t ON t.id = p.event_id
+JOIN entity e ON e.id = p.entity_id
+WHERE t.world_id = ? AND p.deleted_at IS NULL AND t.deleted_at IS NULL AND e.deleted_at IS NULL;
+
+chaptersForWorld:
+SELECT c.* FROM chapter c
+JOIN work w ON w.id = c.work_id
+WHERE w.world_id = ? AND c.deleted_at IS NULL AND w.deleted_at IS NULL
+ORDER BY c.work_id, c.sort_position;

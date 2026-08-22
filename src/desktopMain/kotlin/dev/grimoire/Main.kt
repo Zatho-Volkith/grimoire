@@ -7,6 +7,7 @@ import androidx.compose.ui.unit.DpSize
 import androidx.compose.ui.unit.dp
 import dev.grimoire.db.GrimoireDatabase
 import dev.grimoire.entity.EntityRepository
+import dev.grimoire.export.WorldExporter
 import dev.grimoire.id.IdGenerator
 import dev.grimoire.relationship.RelationshipRepository
 import dev.grimoire.template.TemplateRepository
@@ -33,7 +34,8 @@ fun main() {
     val session = Session(
         WorldRepository(db, ids, clock), EntityRepository(db, ids, clock),
         RelationshipRepository(db, ids, clock), WorkRepository(db, ids, clock),
-        TimelineRepository(db, ids, clock), TemplateRepository(db, ids, clock), scope,
+        TimelineRepository(db, ids, clock), TemplateRepository(db, ids, clock),
+        WorldExporter(db), MarkdownVaultSink(), scope,
     )
 
     application {
