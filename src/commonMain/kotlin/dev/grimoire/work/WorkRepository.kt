@@ -6,13 +6,16 @@ import app.cash.sqldelight.coroutines.mapToOneOrNull
 import dev.grimoire.db.AppearancesForEntity
 import dev.grimoire.db.CastForChapter
 import dev.grimoire.db.Chapter
+import dev.grimoire.db.SearchChapters
 import dev.grimoire.db.DeletedChaptersForWorld
 import dev.grimoire.db.DeletedWorksForWorld
 import dev.grimoire.db.GrimoireDatabase
 import dev.grimoire.db.Work
+import dev.grimoire.entity.ftsQuery
 import dev.grimoire.id.IdGenerator
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.Flow
+import kotlinx.coroutines.flow.flowOf
 import kotlinx.coroutines.withContext
 
 /** Works and their chapters — one aggregate. Chapter bodies are Markdown (see [Ao3Markdown]). */
@@ -100,6 +103,12 @@ class WorkRepository(
     suspend fun softDeleteChapter(id: String) = withContext(Dispatchers.IO) {
         val now = clock()
         q.softDeleteChapter(deleted_at = now, updated_at = now, id = id)
+    }
+
+    /** Live FTS over chapter title/body across the whole world. Blank [text] yields no results. */
+    fun searchChapters(worldId: String, text: String): Flow<List<SearchChapters>> {
+        val match = ftsQuery(text) ?: return flowOf(emptyList())
+        return q.searchChapters(match, worldId).asFlow().mapToList(Dispatchers.IO)
     }
 
     // --- appearances ---

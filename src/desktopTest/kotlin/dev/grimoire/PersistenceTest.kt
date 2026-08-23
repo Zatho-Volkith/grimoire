@@ -104,7 +104,7 @@ class PersistenceTest {
         driver.execute(null, "INSERT INTO entity_fts(entity_fts) VALUES ('delete-all')", 0)
         assertEquals(emptySet(), db.search("swordswoman"))
 
-        FtsMaintenance.rebuild(driver)
+        FtsMaintenance.rebuildEntities(driver)
         assertEquals(setOf("Kaede"), db.search("swordswoman"))
         FtsMaintenance.integrityCheck(driver)
     }

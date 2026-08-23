@@ -5,6 +5,7 @@ import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.setValue
 import androidx.compose.runtime.snapshotFlow
 import dev.grimoire.db.Entity
+import dev.grimoire.db.SearchChapters
 import dev.grimoire.db.DeletedChaptersForWorld
 import dev.grimoire.db.DeletedEntitiesForWorld
 import dev.grimoire.db.DeletedEventsForWorld
@@ -47,6 +48,7 @@ class WorkspaceState(
     var section by mutableStateOf(WorkspaceSection.ENTITIES); private set
     var type by mutableStateOf(EntityType.CHARACTER); private set
     var search by mutableStateOf(""); private set
+    var workSearch by mutableStateOf(""); private set
     var editor by mutableStateOf<EntityEditorState?>(null); private set
     var workEditor by mutableStateOf<WorkEditorState?>(null); private set
     var eventEditor by mutableStateOf<EventEditorState?>(null); private set
@@ -66,6 +68,13 @@ class WorkspaceState(
 
     /** The works list pane. Live. */
     val workList: Flow<List<Work>> = works.forWorld(worldId)
+
+    /** Chapter FTS hits for [workSearch]; empty when the query is blank. Live. */
+    @OptIn(ExperimentalCoroutinesApi::class, FlowPreview::class)
+    val chapterHits: Flow<List<SearchChapters>> =
+        snapshotFlow { workSearch }
+            .debounce { if (it.isBlank()) 0L else 150L }
+            .flatMapLatest { q -> works.searchChapters(worldId, q) }
 
     /** The timeline pane, in reading order. Live. */
     val eventList: Flow<List<Timeline_event>> = timeline.events(worldId)
@@ -87,6 +96,7 @@ class WorkspaceState(
     fun selectTrash() { section = WorkspaceSection.TRASH }
     fun selectTemplateType(t: EntityType) { templateType = t }
     fun searchFor(q: String) { search = q }
+    fun searchChaptersFor(q: String) { workSearch = q }
 
     fun focusSearch() {
         section = WorkspaceSection.ENTITIES

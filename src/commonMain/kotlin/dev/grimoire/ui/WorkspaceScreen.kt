@@ -161,9 +161,34 @@ private fun EntitiesSection(ws: WorkspaceState) {
 private fun WorksSection(ws: WorkspaceState) {
     val works by ws.workList.collectAsState(initial = emptyList())
 
+    val hits by ws.chapterHits.collectAsState(initial = emptyList())
+
     Column(Modifier.width(300.dp).fillMaxHeight().padding(8.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
+        OutlinedTextField(
+            ws.workSearch, ws::searchChaptersFor,
+            label = { Text("Search all chapters") }, singleLine = true,
+            modifier = Modifier.fillMaxWidth(),
+        )
         Button(onClick = ws::createWork, modifier = Modifier.fillMaxWidth()) { Text("New Work") }
-        Text("${works.size} work(s)", style = MaterialTheme.typography.labelMedium)
+        Text(
+            if (ws.workSearch.isBlank()) "${works.size} work(s)" else "${hits.size} chapter hit(s)",
+            style = MaterialTheme.typography.labelMedium,
+        )
+        if (ws.workSearch.isNotBlank()) {
+            LazyColumn(Modifier.fillMaxSize()) {
+                items(hits, key = { it.id }) { hit ->
+                    Column(
+                        Modifier.fillMaxWidth()
+                            .clickable { ws.openWork(hit.work_id, hit.id) }
+                            .padding(horizontal = 8.dp, vertical = 6.dp),
+                    ) {
+                        Text(hit.title ?: "Untitled chapter", style = MaterialTheme.typography.bodyLarge, maxLines = 1)
+                        Text(hit.work_title, style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.outline)
+                    }
+                }
+            }
+            return@Column
+        }
         LazyColumn(Modifier.fillMaxSize()) {
             items(works, key = { it.id }) { w ->
                 val selected = ws.workEditor?.id == w.id

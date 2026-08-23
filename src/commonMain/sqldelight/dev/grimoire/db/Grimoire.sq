@@ -268,6 +268,34 @@ CREATE TABLE chapter (
 CREATE INDEX chapter_work_order_idx ON chapter(work_id, sort_position);
 
 
+-- Full-text search over chapter text. Same external-content pattern and rowid caveats as
+-- entity_fts (see the comment there): a migration that rebuilds `chapter` must register
+-- FtsMaintenance::rebuildChapters in Migrations.afterVersion.
+CREATE VIRTUAL TABLE chapter_fts USING fts5(
+    title, body,
+    content = 'chapter',
+    content_rowid = 'rowid'
+);
+
+CREATE TRIGGER chapter_fts_ai AFTER INSERT ON chapter BEGIN
+    INSERT INTO chapter_fts(rowid, title, body)
+    VALUES (new.rowid, new.title, new.body);
+END;
+
+CREATE TRIGGER chapter_fts_ad AFTER DELETE ON chapter BEGIN
+    INSERT INTO chapter_fts(chapter_fts, rowid, title, body)
+    VALUES ('delete', old.rowid, old.title, old.body);
+END;
+
+-- Only the indexed columns: touching word_count/sort_position doesn't churn the index.
+CREATE TRIGGER chapter_fts_au AFTER UPDATE OF title, body ON chapter BEGIN
+    INSERT INTO chapter_fts(chapter_fts, rowid, title, body)
+    VALUES ('delete', old.rowid, old.title, old.body);
+    INSERT INTO chapter_fts(rowid, title, body)
+    VALUES (new.rowid, new.title, new.body);
+END;
+
+
 -- Which entities appear where. Powers "show me every scene Kaede is in".
 CREATE TABLE entity_appearance (
     entity_id     TEXT    NOT NULL,
@@ -280,6 +308,8 @@ CREATE TABLE entity_appearance (
     FOREIGN KEY (entity_id)  REFERENCES entity(id),
     FOREIGN KEY (chapter_id) REFERENCES chapter(id)
 );
+
+CREATE INDEX appearance_chapter_idx ON entity_appearance(chapter_id);
 
 
 -- ---------------------------------------------------------------------------
@@ -675,3 +705,15 @@ JOIN chapter c ON c.id = a.chapter_id
 JOIN work w ON w.id = c.work_id
 WHERE a.entity_id = ? AND a.deleted_at IS NULL AND c.deleted_at IS NULL AND w.deleted_at IS NULL
 ORDER BY w.title, c.sort_position;
+
+
+-- --- Chapter search ---------------------------------------------------------
+
+searchChapters:
+SELECT c.*, w.title AS work_title
+FROM chapter c
+JOIN chapter_fts f ON f.rowid = c.rowid
+JOIN work w ON w.id = c.work_id
+WHERE chapter_fts MATCH ? AND w.world_id = ? AND c.deleted_at IS NULL AND w.deleted_at IS NULL
+ORDER BY rank
+LIMIT 50;

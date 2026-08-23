@@ -1,0 +1,28 @@
+-- v1 -> v2: chapter full-text search + cast-lookup index.
+-- Migrations.afterVersion registers AfterVersion(2) -> FtsMaintenance.rebuildChapters,
+-- which populates the new external-content index from existing chapters.
+
+CREATE VIRTUAL TABLE chapter_fts USING fts5(
+    title, body,
+    content = 'chapter',
+    content_rowid = 'rowid'
+);
+
+CREATE TRIGGER chapter_fts_ai AFTER INSERT ON chapter BEGIN
+    INSERT INTO chapter_fts(rowid, title, body)
+    VALUES (new.rowid, new.title, new.body);
+END;
+
+CREATE TRIGGER chapter_fts_ad AFTER DELETE ON chapter BEGIN
+    INSERT INTO chapter_fts(chapter_fts, rowid, title, body)
+    VALUES ('delete', old.rowid, old.title, old.body);
+END;
+
+CREATE TRIGGER chapter_fts_au AFTER UPDATE OF title, body ON chapter BEGIN
+    INSERT INTO chapter_fts(chapter_fts, rowid, title, body)
+    VALUES ('delete', old.rowid, old.title, old.body);
+    INSERT INTO chapter_fts(rowid, title, body)
+    VALUES (new.rowid, new.title, new.body);
+END;
+
+CREATE INDEX appearance_chapter_idx ON entity_appearance(chapter_id);

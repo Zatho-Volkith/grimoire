@@ -28,8 +28,10 @@ Dev database: `~/.local/share/grimoire/grimoire.db` (per-OS path in `DriverFacto
 - Schema (`Grimoire.sq`) is the data model. Adding *queries* is routine; *table/column* changes are design
   decisions — raise them, don't slip them in, and never edit the schema just to make a build pass.
 - Schema changes = new `N.sqm` migration + regenerated `databases/(N+1).db` snapshot (never overwrite a
-  shipped snapshot) + test; the build verifies migrations replay to match `Grimoire.sq`. A migration that
-  rebuilds `entity` must register `FtsMaintenance::rebuild` in `Migrations.afterVersion`.
+  shipped snapshot) + a MigrationTest case against real v1-era data (snapshots have `user_version 0` —
+  stamp it before opening). A migration that rebuilds `entity`/`chapter` must register the matching
+  `FtsMaintenance::rebuild*` in `Migrations.afterVersion`; `AfterVersion(N)` fires after `N.sqm` is
+  applied (the N→N+1 step), not "at version N".
 - Writes to user content: debounce, but flush synchronously on navigation and on window close
   (`Session.flush()`); write paths are `NonCancellable`. Soft-delete only.
 - No new runtime dependencies without flagging it. Currently: coroutines, serialization-json, sqldelight.

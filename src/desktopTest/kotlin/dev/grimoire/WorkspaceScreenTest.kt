@@ -297,4 +297,20 @@ class WorkspaceScreenTest {
                 session.workspace?.workEditor?.chapterEditor?.id == chapter
         }
     }
+
+    @Test
+    fun `chapter search in the works section opens the matching chapter`() {
+        val w = runBlocking { worlds.create("Arda") }
+        val work = runBlocking { works.create(w, "The Long Road") }
+        val chapter = runBlocking { works.chapters(work).first() }.single().id
+        runBlocking { works.updateChapter(chapter, "Departure", "She left at dawn.") }
+        session.openWorld(w)
+        rule.setContent { App(session) }
+
+        rule.onNodeWithText("Works").performClick()
+        rule.onNode(hasSetTextAction() and hasText("Search all chapters")).performTextInput("dawn")
+        rule.waitUntilAtLeastOneExists(hasText("Departure"), 5_000)
+        rule.onNodeWithText("Departure").performClick()
+        rule.waitUntil(5_000) { session.workspace?.workEditor?.chapterEditor?.id == chapter }
+    }
 }
