@@ -12,6 +12,7 @@ import dev.grimoire.id.IdGenerator
 import dev.grimoire.relationship.RelationshipRepository
 import dev.grimoire.sync.SyncService
 import dev.grimoire.sync.SyncStatus
+import dev.grimoire.template.BuiltinTemplates
 import dev.grimoire.template.TemplateRepository
 import dev.grimoire.timeline.TimelineRepository
 import dev.grimoire.variant.VariantRepository
@@ -36,6 +37,7 @@ fun main() {
     val ids = IdGenerator(SecureRandom().asKotlinRandom(), System::currentTimeMillis)
     val clock = System::currentTimeMillis
     val scope = CoroutineScope(SupervisorJob() + Dispatchers.Main)
+    BuiltinTemplates.seed(db, ids, clock)
     val wiki = WikiConnector(db, ids, clock, JdkFetcher())
     val syncStatus = SyncStatus()
     val session = Session(

@@ -796,3 +796,8 @@ UPDATE entity SET source_id = ?, updated_at = ? WHERE id = ?;
 
 countSyncQueue:
 SELECT COUNT(*) FROM sync_queue;
+
+
+-- Includes tombstones on purpose: a user who deleted the built-ins shouldn't get them back.
+countBuiltinTemplates:
+SELECT COUNT(*) FROM template WHERE is_builtin = 1;

@@ -290,7 +290,10 @@ private fun TemplatesSection(ws: WorkspaceState) {
                         .padding(horizontal = 8.dp, vertical = 6.dp),
                 ) {
                     Text(t.name, style = MaterialTheme.typography.bodyLarge, maxLines = 1)
-                    Text(EntityType.fromKey(t.entity_type).label, style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.outline)
+                    Text(
+                        EntityType.fromKey(t.entity_type).label + if (t.is_builtin) " · built-in" else "",
+                        style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.outline,
+                    )
                 }
             }
         }
