@@ -5,6 +5,7 @@ import app.cash.sqldelight.coroutines.mapToList
 import app.cash.sqldelight.coroutines.mapToOneOrNull
 import dev.grimoire.db.DeletedEntitiesForWorld
 import dev.grimoire.db.Entity
+import dev.grimoire.db.Source
 import dev.grimoire.db.GrimoireDatabase
 import dev.grimoire.id.IdGenerator
 import dev.grimoire.json.JsonStringMap
@@ -26,6 +27,10 @@ class EntityRepository(
 
     fun entity(id: String): Flow<Entity?> =
         q.entityById(id).asFlow().mapToOneOrNull(Dispatchers.IO)
+
+    suspend fun sourceById(id: String): Source? = withContext(Dispatchers.IO) {
+        q.sourceById(id).executeAsOneOrNull()
+    }
 
     /** Live FTS over name/aliases/summary/body. Empty or whitespace-only [text] yields no results. */
     fun search(worldId: String, text: String): Flow<List<Entity>> {

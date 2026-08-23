@@ -26,6 +26,7 @@ class EntityRepositoryTest {
     private val db = GrimoireDatabase(DriverFactory.create(createTempDirectory("grimoire-test").resolve("g.db")))
     private val worlds = WorldRepository(db, ids) { now }
     private val variants = VariantRepository(db, ids) { now }
+    private val wiki = dev.grimoire.wiki.WikiConnector(db, ids, { now }, dev.grimoire.net.Fetcher { error("no network in tests") })
     private val entities = EntityRepository(db, ids) { now }
     private val relationships = RelationshipRepository(db, ids) { now }
     private val templates = TemplateRepository(db, ids) { now }
@@ -69,7 +70,7 @@ class EntityRepositoryTest {
     fun `editor debounces writes and flush persists the latest keystrokes`() = runTest {
         val w = worlds.create("Arda")
         val id = entities.create(w, EntityType.CHARACTER, "Kaede")
-        val editor = EntityEditorState(id, entities, relationships, templates, works, variants, backgroundScope)
+        val editor = EntityEditorState(id, entities, relationships, templates, works, variants, wiki, backgroundScope)
         editor.load()
         assertTrue(editor.loaded)
 
@@ -103,7 +104,7 @@ class EntityRepositoryTest {
     fun `blank name saves as Untitled rather than empty`() = runTest {
         val w = worlds.create("Arda")
         val id = entities.create(w, EntityType.ITEM, "Sword")
-        val editor = EntityEditorState(id, entities, relationships, templates, works, variants, backgroundScope)
+        val editor = EntityEditorState(id, entities, relationships, templates, works, variants, wiki, backgroundScope)
         editor.load()
         editor.editName("   ")
         editor.flush()

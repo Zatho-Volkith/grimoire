@@ -124,6 +124,7 @@ private fun EntitiesSection(ws: WorkspaceState) {
             modifier = Modifier.fillMaxWidth().focusRequester(searchFocus),
         )
         Button(onClick = ws::createEntity, modifier = Modifier.fillMaxWidth()) { Text("New ${ws.type.label}") }
+        TextButton(onClick = ws::openWikiImport, modifier = Modifier.fillMaxWidth()) { Text("Import from wiki") }
         Text(
             if (ws.search.isBlank()) "${items.size} ${ws.type.plural.lowercase()}" else "${items.size} result(s)",
             style = MaterialTheme.typography.labelMedium,
@@ -144,6 +145,7 @@ private fun EntitiesSection(ws: WorkspaceState) {
             }
         }
     }
+    ws.wikiImport?.let { imp -> WikiImportDialog(imp, onDismiss = ws::closeWikiImport) }
     VerticalDivider()
 
     Box(Modifier.fillMaxSize()) {

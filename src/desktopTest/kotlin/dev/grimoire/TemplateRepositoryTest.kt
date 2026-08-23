@@ -26,6 +26,7 @@ class TemplateRepositoryTest {
     private val db = GrimoireDatabase(DriverFactory.create(createTempDirectory("grimoire-test").resolve("g.db")))
     private val worlds = WorldRepository(db, ids) { 1L }
     private val variants = VariantRepository(db, ids) { 1L }
+    private val wiki = dev.grimoire.wiki.WikiConnector(db, ids, { 1L }, dev.grimoire.net.Fetcher { error("no network in tests") })
     private val works = WorkRepository(db, ids) { 1L }
     private val entities = EntityRepository(db, ids) { 1L }
     private val relationships = RelationshipRepository(db, ids) { 1L }
@@ -66,7 +67,7 @@ class TemplateRepositoryTest {
         templates.update(sheet, "Sheet", listOf(TemplateField("age", "Age")))
         val kaede = entities.create(w, EntityType.CHARACTER, "Kaede")
 
-        val editor = EntityEditorState(kaede, entities, relationships, templates, works, variants, backgroundScope)
+        val editor = EntityEditorState(kaede, entities, relationships, templates, works, variants, wiki, backgroundScope)
         editor.load()
         assertEquals(listOf("Sheet"), editor.templateOptions.first().map { it.name })
 
@@ -79,7 +80,7 @@ class TemplateRepositoryTest {
         assertEquals(mapOf("age" to "27"), JsonStringMap.decode(row.attributes))
 
         // Reload sees the same state; switching template keeps values.
-        val editor2 = EntityEditorState(kaede, entities, relationships, templates, works, variants, backgroundScope)
+        val editor2 = EntityEditorState(kaede, entities, relationships, templates, works, variants, wiki, backgroundScope)
         editor2.load()
         assertEquals("27", editor2.attributes["age"])
         editor2.selectTemplate(null)

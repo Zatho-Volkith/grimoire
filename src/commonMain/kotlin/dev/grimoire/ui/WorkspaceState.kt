@@ -22,6 +22,7 @@ import dev.grimoire.relationship.RelationshipRepository
 import dev.grimoire.template.TemplateRepository
 import dev.grimoire.timeline.TimelineRepository
 import dev.grimoire.variant.VariantRepository
+import dev.grimoire.wiki.WikiConnector
 import dev.grimoire.work.WorkRepository
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.ExperimentalCoroutinesApi
@@ -43,6 +44,7 @@ class WorkspaceState(
     private val timeline: TimelineRepository,
     private val templates: TemplateRepository,
     private val variants: VariantRepository,
+    private val wiki: WikiConnector,
     private val exporter: WorldExporter,
     private val exportSink: ExportSink,
     private val scope: CoroutineScope,
@@ -58,6 +60,7 @@ class WorkspaceState(
     /** Which entity type a template created from the Templates section applies to. */
     var templateType by mutableStateOf(EntityType.CHARACTER); private set
     var exportStatus by mutableStateOf<String?>(null); private set
+    var wikiImport by mutableStateOf<WikiImportState?>(null); private set
     /** Bumped by [focusSearch]; the screen observes it to move focus into the search field. */
     var focusSearchTick by mutableStateOf(0); private set
 
@@ -126,7 +129,7 @@ class WorkspaceState(
         section = WorkspaceSection.ENTITIES
         if (editor?.id == id) return
         val previous = editor
-        val next = EntityEditorState(id, entities, relationships, templates, works, variants, scope)
+        val next = EntityEditorState(id, entities, relationships, templates, works, variants, wiki, scope)
         editor = next
         scope.launch {
             previous?.flush()
@@ -143,6 +146,15 @@ class WorkspaceState(
     fun createEntity() {
         scope.launch { open(entities.create(worldId, type, "New ${type.label}")) }
     }
+
+    fun openWikiImport() {
+        wikiImport = WikiImportState(worldId, wiki, scope) { imported ->
+            wikiImport = null
+            open(imported)
+        }
+    }
+
+    fun closeWikiImport() { wikiImport = null }
 
     fun deleteOpenEntity() {
         val target = editor ?: return

@@ -13,6 +13,7 @@ import dev.grimoire.relationship.RelationshipRepository
 import dev.grimoire.template.TemplateRepository
 import dev.grimoire.timeline.TimelineRepository
 import dev.grimoire.variant.VariantRepository
+import dev.grimoire.wiki.WikiConnector
 import dev.grimoire.work.WorkRepository
 import dev.grimoire.ui.App
 import dev.grimoire.ui.Session
@@ -36,7 +37,7 @@ fun main() {
     val session = Session(
         WorldRepository(db, ids, clock), EntityRepository(db, ids, clock),
         RelationshipRepository(db, ids, clock), WorkRepository(db, ids, clock),
-        TimelineRepository(db, ids, clock), TemplateRepository(db, ids, clock), VariantRepository(db, ids, clock),
+        TimelineRepository(db, ids, clock), TemplateRepository(db, ids, clock), VariantRepository(db, ids, clock), WikiConnector(db, ids, clock, JdkFetcher()),
         WorldExporter(db), MarkdownVaultSink(),
         FileSettingsStore(DriverFactory.appDataDir().resolve("settings.json")), scope,
     )

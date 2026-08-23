@@ -15,6 +15,8 @@ import dev.grimoire.json.JsonStringMap
 import dev.grimoire.json.JsonStrings
 import dev.grimoire.template.TemplateRepository
 import dev.grimoire.variant.VariantRepository
+import dev.grimoire.wiki.CanonSnapshot
+import dev.grimoire.wiki.WikiConnector
 import dev.grimoire.work.WorkRepository
 import dev.grimoire.relationship.RelationshipKind
 import dev.grimoire.relationship.RelationshipRepository
@@ -42,6 +44,7 @@ class EntityEditorState(
     private val templates: TemplateRepository,
     private val works: WorkRepository,
     private val variantsRepo: VariantRepository,
+    private val wiki: WikiConnector,
     private val scope: CoroutineScope,
 ) {
     var loaded by mutableStateOf(false); private set
@@ -53,6 +56,17 @@ class EntityEditorState(
     var templateId by mutableStateOf<String?>(null); private set
     var attributes by mutableStateOf<Map<String, String>>(emptyMap()); private set
     var dirty by mutableStateOf(false); private set
+
+    // Canon layer (wiki-sourced entities only). The connector owns it; we just display it.
+    var canon by mutableStateOf<CanonSnapshot?>(null); private set
+    var sourceLabel by mutableStateOf<String?>(null); private set
+    var canonStatus by mutableStateOf<String?>(null); private set
+
+    /** True when the user's text has drifted from what the wiki currently says. */
+    val differsFromCanon: Boolean
+        get() = canon?.let { c ->
+            name != c.name || summary != c.summary.orEmpty() || body != c.body.orEmpty()
+        } ?: false
 
     /** Templates this entity could use (its type, its world). Populated by [load]. */
     var templateOptions: Flow<List<Template>> = flowOf(emptyList()); private set
@@ -73,7 +87,32 @@ class EntityEditorState(
         attributes = JsonStringMap.decode(e.attributes)
         templateOptions = templates.forType(worldId, EntityType.fromKey(e.type))
         workOptions = works.forWorld(worldId)
+        val source = repo.sourceById(e.source_id)
+        if (source?.kind == "fandom_wiki") {
+            canon = CanonSnapshot.decode(e.canon_snapshot)
+            sourceLabel = source.label
+        }
         loaded = true
+    }
+
+    /** Re-fetches the wiki page; only the canon layer can change. Degrades to a status line offline. */
+    fun refreshCanon() {
+        scope.launch {
+            canonStatus = "Checking…"
+            canonStatus = runCatching { wiki.refresh(id) }.fold(
+                onSuccess = { result ->
+                    when (result) {
+                        WikiConnector.RefreshResult.UPDATED -> {
+                            canon = CanonSnapshot.decode(repo.entity(id).first()?.canon_snapshot)
+                            "Canon updated"
+                        }
+                        WikiConnector.RefreshResult.UNCHANGED -> "Canon up to date"
+                        WikiConnector.RefreshResult.NOT_WIKI_SOURCED -> null
+                    }
+                },
+                onFailure = { "Refresh failed — offline?" },
+            )
+        }
     }
 
     fun editName(v: String) = edit { name = v }

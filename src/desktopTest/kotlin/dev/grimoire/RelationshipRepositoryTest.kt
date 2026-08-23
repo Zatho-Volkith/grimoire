@@ -25,6 +25,7 @@ class RelationshipRepositoryTest {
     private val db = GrimoireDatabase(DriverFactory.create(createTempDirectory("grimoire-test").resolve("g.db")))
     private val worlds = WorldRepository(db, ids) { 1L }
     private val variants = VariantRepository(db, ids) { 1L }
+    private val wiki = dev.grimoire.wiki.WikiConnector(db, ids, { 1L }, dev.grimoire.net.Fetcher { error("no network in tests") })
     private val works = WorkRepository(db, ids) { 1L }
     private val entities = EntityRepository(db, ids) { 1L }
     private val relationships = RelationshipRepository(db, ids) { 1L }
@@ -70,7 +71,7 @@ class RelationshipRepositoryTest {
         val w = worlds.create("Arda")
         val kaede = entities.create(w, EntityType.CHARACTER, "Kaede")
         entities.create(w, EntityType.LOCATION, "Kaede's Village")
-        val editor = EntityEditorState(kaede, entities, relationships, templates, works, variants, backgroundScope)
+        val editor = EntityEditorState(kaede, entities, relationships, templates, works, variants, wiki, backgroundScope)
         editor.load()
         assertEquals(listOf("Kaede's Village"), editor.searchTargets("kae").first().map { it.name })
     }

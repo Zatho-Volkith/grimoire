@@ -742,3 +742,20 @@ UPDATE variant SET name_override = ?, summary_override = ?, body_override = ?, u
 
 softDeleteVariant:
 UPDATE variant SET deleted_at = ?, updated_at = ? WHERE id = ?;
+
+
+-- --- Wiki connector ---------------------------------------------------------
+
+sourceById:
+SELECT * FROM source WHERE id = ?;
+
+insertWikiSource:
+INSERT INTO source (id, world_id, kind, label, remote_url, remote_id, revision, fetched_at, cached_payload, created_at, updated_at)
+VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?);
+
+updateSourceFetch:
+UPDATE source SET revision = ?, fetched_at = ?, cached_payload = ?, updated_at = ? WHERE id = ?;
+
+-- The connector's write path: canon only, never the user's columns.
+updateEntityCanon:
+UPDATE entity SET canon_snapshot = ?, updated_at = ? WHERE id = ?;
