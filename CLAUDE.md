@@ -39,3 +39,9 @@ Dev database: `~/.local/share/grimoire/grimoire.db` (per-OS path in `DriverFacto
 - Wayland blocks xdotool — verify UI with Compose UI tests (`WorkspaceScreenTest`), not by scripting clicks.
 - Kotlin generates JVM setters for `private set` properties: name mutators `editX`/`searchFor`, not `setX`.
 - Versioning: `VERSION` build counter + `version` in `build.gradle.kts` (see global rules).
+- Before tagging a release: `./gradlew createDistributable` and launch
+  `build/compose/binaries/main/app/grimoire/bin/grimoire` once. Packaged builds run on a trimmed
+  jlink runtime (`modules(...)` in `build.gradle.kts`) — a missing module crashes only there, and
+  Windows masks it as "Failed to launch JVM". After adding a dependency or new JDK API, check
+  `./gradlew suggestRuntimeModules` (it can't see SPI-loaded modules like `jdk.crypto.ec` — keep
+  that one listed regardless).
