@@ -103,7 +103,8 @@ private fun AttributesPanel(state: EntityEditorState) {
             }
         }
         selected?.let { t ->
-            TemplateFields.decode(t.fields).forEach { f ->
+            val fields = remember(t.fields) { TemplateFields.decode(t.fields) }
+            fields.forEach { f ->
                 OutlinedTextField(
                     state.attributes[f.key].orEmpty(), { state.editAttribute(f.key, it) },
                     label = { Text(f.label) }, singleLine = true,

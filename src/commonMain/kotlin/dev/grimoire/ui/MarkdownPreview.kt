@@ -16,6 +16,8 @@ import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.produceState
 import androidx.compose.runtime.remember
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
@@ -29,6 +31,8 @@ import androidx.compose.ui.text.style.TextDecoration
 import androidx.compose.ui.text.withStyle
 import androidx.compose.ui.unit.dp
 import dev.grimoire.work.Markdown
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.withContext
 import dev.grimoire.work.MdBlock
 import dev.grimoire.work.MdRun
 
@@ -38,7 +42,12 @@ import dev.grimoire.work.MdRun
  */
 @Composable
 fun MarkdownPreview(markdown: String, modifier: Modifier = Modifier) {
-    val blocks = remember(markdown) { Markdown.parse(markdown) }
+    // First composition parses synchronously (opening a chapter); every edit after that
+    // re-parses on a background dispatcher, latest-wins, so typing in a long chapter
+    // never pays the parse on the UI thread.
+    val blocks by produceState(initialValue = remember { Markdown.parse(markdown) }, markdown) {
+        value = withContext(Dispatchers.Default) { Markdown.parse(markdown) }
+    }
     Column(
         modifier.verticalScroll(rememberScrollState()).testTag("md-preview"),
         verticalArrangement = Arrangement.spacedBy(10.dp),

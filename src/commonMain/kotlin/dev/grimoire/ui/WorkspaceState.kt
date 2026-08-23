@@ -111,8 +111,8 @@ class WorkspaceState(
     fun restoreTemplate(id: String) { scope.launch { templates.restore(id) } }
 
     fun open(id: String) {
-        if (editor?.id == id) return
         section = WorkspaceSection.ENTITIES
+        if (editor?.id == id) return
         val previous = editor
         val next = EntityEditorState(id, entities, relationships, templates, works, scope)
         editor = next
