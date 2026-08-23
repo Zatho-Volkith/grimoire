@@ -32,6 +32,27 @@ class EntityRepository(
         q.sourceById(id).executeAsOneOrNull()
     }
 
+    // --- named user sources: provenance labels like "Fandom consensus" or "Headcanon bible".
+
+    fun userSources(worldId: String): Flow<List<Source>> =
+        q.userSourcesForWorld(worldId).asFlow().mapToList(Dispatchers.IO)
+
+    suspend fun createSource(worldId: String, label: String): String = withContext(Dispatchers.IO) {
+        val now = clock()
+        val id = ids.next()
+        q.insertSource(id = id, world_id = worldId, kind = "user_authored", label = label, created_at = now, updated_at = now)
+        id
+    }
+
+    suspend fun renameSource(id: String, label: String) = withContext(Dispatchers.IO) {
+        q.renameSource(label = label, updated_at = clock(), id = id)
+    }
+
+    /** Reassigns a user-authored entity to another user source. Straight-through, like relationships. */
+    suspend fun setSource(entityId: String, sourceId: String) = withContext(Dispatchers.IO) {
+        q.setEntitySource(source_id = sourceId, updated_at = clock(), id = entityId)
+    }
+
     /** Live FTS over name/aliases/summary/body. Empty or whitespace-only [text] yields no results. */
     fun search(worldId: String, text: String): Flow<List<Entity>> {
         val match = ftsQuery(text) ?: return flowOf(emptyList())

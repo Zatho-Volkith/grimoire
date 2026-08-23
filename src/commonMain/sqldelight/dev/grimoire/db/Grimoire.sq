@@ -779,3 +779,17 @@ DELETE FROM sync_queue WHERE id = ?;
 
 markSyncFailure:
 UPDATE sync_queue SET attempts = attempts + 1, last_error = ?, next_retry_at = ? WHERE id = ?;
+
+
+-- --- Named user sources -----------------------------------------------------
+
+userSourcesForWorld:
+SELECT * FROM source
+WHERE world_id = ? AND kind = 'user_authored' AND deleted_at IS NULL
+ORDER BY created_at;
+
+renameSource:
+UPDATE source SET label = ?, updated_at = ? WHERE id = ?;
+
+setEntitySource:
+UPDATE entity SET source_id = ?, updated_at = ? WHERE id = ?;

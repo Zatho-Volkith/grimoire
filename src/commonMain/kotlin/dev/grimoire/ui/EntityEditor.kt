@@ -60,6 +60,7 @@ fun EntityEditor(state: EntityEditorState, onDelete: () -> Unit, onOpenEntity: (
             TextButton(onClick = onDelete) { Text("Delete", color = MaterialTheme.colorScheme.error) }
         }
         if (state.showCanonDiff) CanonDiffDialog(state)
+        if (state.assignedSourceId != null) SourceAssignRow(state)
         state.sourceLabel?.let { label ->
             Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                 Text("Canon: $label", style = MaterialTheme.typography.labelMedium, color = MaterialTheme.colorScheme.outline)
@@ -235,5 +236,29 @@ private fun AddVariantForm(state: EntityEditorState, alreadyUsedWorkIds: Set<Str
             enabled = continuity.isNotBlank(),
             onClick = { state.addVariant(null, continuity.trim()); continuity = "" },
         ) { Text("Add AU") }
+    }
+}
+
+/** Files a user-authored entity under one of the world's named sources. */
+@OptIn(ExperimentalMaterial3Api::class)
+@Composable
+private fun SourceAssignRow(state: EntityEditorState) {
+    val options by state.sourceOptions.collectAsState(initial = emptyList())
+    var open by remember { mutableStateOf(false) }
+    val current = options.firstOrNull { it.id == state.assignedSourceId }
+
+    ExposedDropdownMenuBox(expanded = open, onExpandedChange = { open = it }, modifier = Modifier.width(320.dp)) {
+        OutlinedTextField(
+            value = current?.label ?: "…",
+            onValueChange = {}, readOnly = true, singleLine = true,
+            label = { Text("Source") },
+            trailingIcon = { ExposedDropdownMenuDefaults.TrailingIcon(open) },
+            modifier = Modifier.menuAnchor(ExposedDropdownMenuAnchorType.PrimaryNotEditable),
+        )
+        ExposedDropdownMenu(expanded = open, onDismissRequest = { open = false }) {
+            options.forEach { s ->
+                DropdownMenuItem(text = { Text(s.label) }, onClick = { state.assignSource(s.id); open = false })
+            }
+        }
     }
 }

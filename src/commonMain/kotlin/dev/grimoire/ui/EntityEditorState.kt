@@ -5,6 +5,7 @@ import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.setValue
 import dev.grimoire.db.AppearancesForEntity
 import dev.grimoire.db.Entity
+import dev.grimoire.db.Source
 import dev.grimoire.db.Template
 import dev.grimoire.db.VariantsForEntity
 import dev.grimoire.db.Work
@@ -62,6 +63,10 @@ class EntityEditorState(
     var sourceLabel by mutableStateOf<String?>(null); private set
     var canonStatus by mutableStateOf<String?>(null); private set
 
+    // User-authored entities can be re-filed under any named user source of the world.
+    var assignedSourceId by mutableStateOf<String?>(null); private set
+    var sourceOptions: Flow<List<Source>> = flowOf(emptyList()); private set
+
     /** True when the user's text has drifted from what the wiki currently says. */
     val differsFromCanon: Boolean
         get() = canon?.let { c ->
@@ -105,7 +110,17 @@ class EntityEditorState(
             canon = CanonSnapshot.decode(e.canon_snapshot)
             sourceLabel = source.label
         }
+        if (source?.kind == "user_authored") {
+            assignedSourceId = source.id
+            sourceOptions = repo.userSources(worldId)
+        }
         loaded = true
+    }
+
+    /** Files this entity under [sourceId]. Straight-through write, no debounce involvement. */
+    fun assignSource(sourceId: String) {
+        assignedSourceId = sourceId
+        scope.launch { repo.setSource(id, sourceId) }
     }
 
     /** Re-fetches the wiki page; only the canon layer can change. Degrades to a status line offline. */

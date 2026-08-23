@@ -125,6 +125,7 @@ private fun EntitiesSection(ws: WorkspaceState) {
         )
         Button(onClick = ws::createEntity, modifier = Modifier.fillMaxWidth()) { Text("New ${ws.type.label}") }
         TextButton(onClick = ws::openWikiImport, modifier = Modifier.fillMaxWidth()) { Text("Import from wiki") }
+        SourceFilterRow(ws)
         Text(
             if (ws.search.isBlank()) "${items.size} ${ws.type.plural.lowercase()}" else "${items.size} result(s)",
             style = MaterialTheme.typography.labelMedium,
@@ -146,6 +147,7 @@ private fun EntitiesSection(ws: WorkspaceState) {
         }
     }
     ws.wikiImport?.let { imp -> WikiImportDialog(imp, onDismiss = ws::closeWikiImport) }
+    if (ws.showSources) SourcesDialog(ws)
     VerticalDivider()
 
     Box(Modifier.fillMaxSize()) {
@@ -351,5 +353,39 @@ private fun <T> androidx.compose.foundation.lazy.LazyListScope.trashGroup(
             Spacer(Modifier.weight(1f))
             TextButton(onClick = { restore(key(t)) }) { Text("Restore") }
         }
+    }
+}
+
+@OptIn(ExperimentalMaterial3Api::class)
+@Composable
+private fun SourceFilterRow(ws: WorkspaceState) {
+    val sources by ws.sourceList.collectAsState(initial = emptyList())
+    var open by remember { mutableStateOf(false) }
+    val label = when (val f = ws.sourceFilter) {
+        null -> "All sources"
+        SourceFilter.Wiki -> "Wiki imports"
+        is SourceFilter.User -> f.label
+    }
+
+    Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(4.dp)) {
+        ExposedDropdownMenuBox(expanded = open, onExpandedChange = { open = it }, modifier = Modifier.weight(1f)) {
+            OutlinedTextField(
+                value = label, onValueChange = {}, readOnly = true, singleLine = true,
+                label = { Text("Source") },
+                trailingIcon = { ExposedDropdownMenuDefaults.TrailingIcon(open) },
+                modifier = Modifier.fillMaxWidth().menuAnchor(ExposedDropdownMenuAnchorType.PrimaryNotEditable),
+            )
+            ExposedDropdownMenu(expanded = open, onDismissRequest = { open = false }) {
+                DropdownMenuItem(text = { Text("All sources") }, onClick = { ws.filterBySource(null); open = false })
+                DropdownMenuItem(text = { Text("Wiki imports") }, onClick = { ws.filterBySource(SourceFilter.Wiki); open = false })
+                sources.forEach { s ->
+                    DropdownMenuItem(
+                        text = { Text(s.label) },
+                        onClick = { ws.filterBySource(SourceFilter.User(s.id, s.label)); open = false },
+                    )
+                }
+            }
+        }
+        TextButton(onClick = ws::openSources) { Text("Manage") }
     }
 }

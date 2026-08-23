@@ -5,6 +5,7 @@ import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.setValue
 import androidx.compose.runtime.snapshotFlow
 import dev.grimoire.db.Entity
+import dev.grimoire.db.Source
 import dev.grimoire.db.SearchChapters
 import dev.grimoire.db.DeletedChaptersForWorld
 import dev.grimoire.db.DeletedEntitiesForWorld
@@ -28,9 +29,17 @@ import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.FlowPreview
 import kotlinx.coroutines.flow.Flow
+import kotlinx.coroutines.flow.combine
 import kotlinx.coroutines.flow.debounce
 import kotlinx.coroutines.flow.flatMapLatest
+import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.launch
+
+/** Entity-list source filter: everything, only wiki imports, or one named user source. */
+sealed interface SourceFilter {
+    data object Wiki : SourceFilter
+    data class User(val id: String, val label: String) : SourceFilter
+}
 
 /** Which kind of thing the workspace is browsing. */
 enum class WorkspaceSection { ENTITIES, WORKS, TIMELINE, TEMPLATES, TRASH }
@@ -52,6 +61,8 @@ class WorkspaceState(
     var section by mutableStateOf(WorkspaceSection.ENTITIES); private set
     var type by mutableStateOf(EntityType.CHARACTER); private set
     var search by mutableStateOf(""); private set
+    var sourceFilter by mutableStateOf<SourceFilter?>(null); private set
+    var showSources by mutableStateOf(false); private set
     var workSearch by mutableStateOf(""); private set
     var editor by mutableStateOf<EntityEditorState?>(null); private set
     var workEditor by mutableStateOf<WorkEditorState?>(null); private set
@@ -64,12 +75,25 @@ class WorkspaceState(
     /** Bumped by [focusSearch]; the screen observes it to move focus into the search field. */
     var focusSearchTick by mutableStateOf(0); private set
 
-    /** The entity list pane: search hits when a query is present, else the selected type. Live. */
+    /** The world's named user sources ("My notes", "Fandom consensus", …). Live. */
+    val sourceList: Flow<List<Source>> = entities.userSources(worldId)
+
+    /** The entity list pane: search hits when a query is present, else the selected type; both respect [sourceFilter]. Live. */
     @OptIn(ExperimentalCoroutinesApi::class, FlowPreview::class)
     val items: Flow<List<Entity>> =
-        snapshotFlow { type to search }
-            .debounce { (_, q) -> if (q.isBlank()) 0L else 150L }
-            .flatMapLatest { (t, q) -> if (q.isBlank()) entities.byType(worldId, t) else entities.search(worldId, q) }
+        snapshotFlow { Triple(type, search, sourceFilter) }
+            .debounce { (_, q, _) -> if (q.isBlank()) 0L else 150L }
+            .flatMapLatest { (t, q, filter) ->
+                val base = if (q.isBlank()) entities.byType(worldId, t) else entities.search(worldId, q)
+                when (filter) {
+                    null -> base
+                    is SourceFilter.User -> base.map { list -> list.filter { it.source_id == filter.id } }
+                    SourceFilter.Wiki -> combine(base, sourceList) { list, sources ->
+                        val userIds = sources.map { it.id }.toSet()
+                        list.filter { it.source_id !in userIds }
+                    }
+                }
+            }
 
     /** The works list pane. Live. */
     val workList: Flow<List<Work>> = works.forWorld(worldId)
@@ -101,6 +125,11 @@ class WorkspaceState(
     fun selectTrash() { section = WorkspaceSection.TRASH }
     fun selectTemplateType(t: EntityType) { templateType = t }
     fun searchFor(q: String) { search = q }
+    fun filterBySource(f: SourceFilter?) { sourceFilter = f }
+    fun openSources() { showSources = true }
+    fun closeSources() { showSources = false }
+    fun createSource(label: String) { scope.launch { entities.createSource(worldId, label.trim()) } }
+    fun renameSource(id: String, label: String) { scope.launch { entities.renameSource(id, label.trim()) } }
     fun searchChaptersFor(q: String) { workSearch = q }
 
     fun focusSearch() {
