@@ -15,6 +15,7 @@ import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Text
+import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
@@ -45,6 +46,10 @@ fun WorldPickerScreen(session: Session) {
                 enabled = name.isNotBlank(),
                 onClick = { session.createWorld(name.trim()); name = "" },
             ) { Text("Create") }
+        }
+        Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+            Text("New here?", style = MaterialTheme.typography.bodySmall)
+            TextButton(onClick = session::createTutorialWorld) { Text("Create the tutorial world") }
         }
         HorizontalDivider()
         if (worlds.isEmpty()) {

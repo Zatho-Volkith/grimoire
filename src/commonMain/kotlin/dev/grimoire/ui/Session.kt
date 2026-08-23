@@ -11,6 +11,7 @@ import dev.grimoire.settings.SettingsStore
 import dev.grimoire.sync.SyncStatus
 import dev.grimoire.template.TemplateRepository
 import dev.grimoire.timeline.TimelineRepository
+import dev.grimoire.tutorial.TutorialWorld
 import dev.grimoire.variant.VariantRepository
 import dev.grimoire.wiki.WikiConnector
 import dev.grimoire.work.WorkRepository
@@ -47,6 +48,13 @@ class Session(
 
     fun createWorld(name: String) {
         scope.launch { openWorld(worlds.create(name)) }
+    }
+
+    /** Seeds and opens the optional guided-tour world. Disposable like any other world. */
+    fun createTutorialWorld() {
+        scope.launch {
+            openWorld(TutorialWorld.create(worlds, entities, relationships, works, timeline, templates, variants))
+        }
     }
 
     fun selectTheme(t: AppTheme) {

@@ -24,6 +24,7 @@ import kotlin.random.Random
 fun testSession(settings: SettingsStore, fetcher: Fetcher = Fetcher { error("no network in tests") }): Session {
     val ids = IdGenerator(Random(1), System::currentTimeMillis)
     val db = GrimoireDatabase(DriverFactory.create(createTempDirectory("grimoire-test").resolve("g.db")))
+    dev.grimoire.template.BuiltinTemplates.seed(db, ids, System::currentTimeMillis) // as Main does
     return Session(
         WorldRepository(db, ids, System::currentTimeMillis),
         EntityRepository(db, ids, System::currentTimeMillis),
