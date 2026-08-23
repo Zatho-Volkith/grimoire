@@ -27,3 +27,6 @@ local.properties
 
 # Docs are local working notes, not part of the published repo
 docs/
+
+# Historical scaffolding prompt, kept local only
+claude-code-prompt.md
