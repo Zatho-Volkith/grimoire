@@ -6,12 +6,15 @@ import androidx.compose.runtime.setValue
 import dev.grimoire.db.AppearancesForEntity
 import dev.grimoire.db.Entity
 import dev.grimoire.db.Template
+import dev.grimoire.db.VariantsForEntity
+import dev.grimoire.db.Work
 import dev.grimoire.db.RelationshipsFor
 import dev.grimoire.entity.EntityRepository
 import dev.grimoire.entity.EntityType
 import dev.grimoire.json.JsonStringMap
 import dev.grimoire.json.JsonStrings
 import dev.grimoire.template.TemplateRepository
+import dev.grimoire.variant.VariantRepository
 import dev.grimoire.work.WorkRepository
 import dev.grimoire.relationship.RelationshipKind
 import dev.grimoire.relationship.RelationshipRepository
@@ -38,6 +41,7 @@ class EntityEditorState(
     private val relationships: RelationshipRepository,
     private val templates: TemplateRepository,
     private val works: WorkRepository,
+    private val variantsRepo: VariantRepository,
     private val scope: CoroutineScope,
 ) {
     var loaded by mutableStateOf(false); private set
@@ -53,6 +57,9 @@ class EntityEditorState(
     /** Templates this entity could use (its type, its world). Populated by [load]. */
     var templateOptions: Flow<List<Template>> = flowOf(emptyList()); private set
 
+    /** Works of this world, for the variant scope picker. Populated by [load]. */
+    var workOptions: Flow<List<Work>> = flowOf(emptyList()); private set
+
     private var saveJob: Job? = null
 
     suspend fun load() {
@@ -65,6 +72,7 @@ class EntityEditorState(
         templateId = e.template_id
         attributes = JsonStringMap.decode(e.attributes)
         templateOptions = templates.forType(worldId, EntityType.fromKey(e.type))
+        workOptions = works.forWorld(worldId)
         loaded = true
     }
 
@@ -82,6 +90,40 @@ class EntityEditorState(
 
     /** Chapters that cast this entity, managed from the chapter side; read-only here. */
     val appearances: Flow<List<AppearancesForEntity>> = works.appearances(id)
+
+    // --- variants: list is live; one variant's overrides edit through a sub-editor.
+
+    val variants: Flow<List<VariantsForEntity>> = variantsRepo.forEntity(id)
+    var variantEditor by mutableStateOf<VariantEditorState?>(null); private set
+
+    fun openVariant(variantId: String) {
+        if (variantEditor?.id == variantId) return
+        val previous = variantEditor
+        val next = VariantEditorState(variantId, variantsRepo, scope)
+        variantEditor = next
+        scope.launch {
+            previous?.flush()
+            next.load()
+        }
+    }
+
+    fun closeVariant() {
+        val previous = variantEditor ?: return
+        variantEditor = null
+        scope.launch { previous.flush() }
+    }
+
+    /** Creates a variant scoped to [workId] (or, with null, to [continuityKey]) and opens it. */
+    fun addVariant(workId: String?, continuityKey: String?) {
+        scope.launch {
+            variantsRepo.create(id, workId, continuityKey)?.let { openVariant(it) }
+        }
+    }
+
+    fun removeVariant(variantId: String) {
+        if (variantEditor?.id == variantId) variantEditor = null
+        scope.launch { variantsRepo.softDelete(variantId) }
+    }
 
     /** Candidate targets for a new relationship: live search over the world, minus this entity. */
     fun searchTargets(text: String): Flow<List<Entity>> =
@@ -106,6 +148,7 @@ class EntityEditorState(
 
     /** Persists pending edits now. Safe to call when nothing is dirty. */
     suspend fun flush() {
+        variantEditor?.flush()
         // Cancels a save still waiting out its delay; waits for one already writing (the write
         // itself is NonCancellable, so cancelling mid-write can't drop the edit that cleared `dirty`).
         saveJob?.cancelAndJoin()

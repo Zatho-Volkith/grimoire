@@ -717,3 +717,28 @@ JOIN work w ON w.id = c.work_id
 WHERE chapter_fts MATCH ? AND w.world_id = ? AND c.deleted_at IS NULL AND w.deleted_at IS NULL
 ORDER BY rank
 LIMIT 50;
+
+
+-- --- Variants ---------------------------------------------------------------
+
+variantsForEntity:
+SELECT v.*, w.title AS work_title FROM variant v
+LEFT JOIN work w ON w.id = v.work_id
+WHERE v.entity_id = ? AND v.deleted_at IS NULL
+ORDER BY v.created_at;
+
+variantById:
+SELECT v.*, w.title AS work_title FROM variant v
+LEFT JOIN work w ON w.id = v.work_id
+WHERE v.id = ?;
+
+insertVariant:
+INSERT INTO variant (id, entity_id, work_id, continuity_key, attribute_patch, created_at, updated_at)
+VALUES (?, ?, ?, ?, '{}', ?, ?);
+
+-- Editor save path; notes/attribute_patch are untouched until they grow UI.
+updateVariantContent:
+UPDATE variant SET name_override = ?, summary_override = ?, body_override = ?, updated_at = ? WHERE id = ?;
+
+softDeleteVariant:
+UPDATE variant SET deleted_at = ?, updated_at = ? WHERE id = ?;

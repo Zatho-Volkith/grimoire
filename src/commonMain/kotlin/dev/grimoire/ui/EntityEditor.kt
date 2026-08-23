@@ -4,6 +4,8 @@ import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
+import androidx.compose.material3.Button
+import androidx.compose.material3.HorizontalDivider
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.heightIn
@@ -75,6 +77,7 @@ fun EntityEditor(state: EntityEditorState, onDelete: () -> Unit, onOpenEntity: (
         )
         RelationshipsPanel(state, onOpenEntity)
         AppearancesPanel(state, onOpenChapter)
+        VariantsPanel(state)
     }
 }
 
@@ -130,5 +133,94 @@ private fun AppearancesPanel(state: EntityEditorState, onOpenChapter: (String, S
                 modifier = Modifier.testTag("appearance-link").clickable { onOpenChapter(a.work_id, a.chapter_id) },
             )
         }
+    }
+}
+
+/**
+ * Per-work / per-continuity overrides of this entity. Blank override fields inherit canon.
+ * The schema allows one live variant per scope; the work picker hides already-used works.
+ */
+@OptIn(ExperimentalMaterial3Api::class)
+@Composable
+private fun VariantsPanel(state: EntityEditorState) {
+    val rows by state.variants.collectAsState(initial = emptyList())
+    val workOptions by state.workOptions.collectAsState(initial = emptyList())
+
+    Column(verticalArrangement = Arrangement.spacedBy(6.dp)) {
+        HorizontalDivider(Modifier.padding(vertical = 4.dp))
+        Text("Variants", style = MaterialTheme.typography.titleMedium)
+        if (rows.isEmpty()) Text("Canon everywhere — no overrides yet.", style = MaterialTheme.typography.bodySmall)
+        rows.forEach { v ->
+            val editing = state.variantEditor?.id == v.id
+            Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                Text(
+                    v.work_title?.let { "In “$it”" } ?: "AU: ${v.continuity_key}",
+                    style = MaterialTheme.typography.bodyMedium,
+                )
+                v.name_override?.let { Text("as “$it”", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.outline) }
+                TextButton(onClick = { if (editing) state.closeVariant() else state.openVariant(v.id) }) {
+                    Text(if (editing) "Done" else "Edit")
+                }
+                TextButton(onClick = { state.removeVariant(v.id) }) { Text("Remove") }
+            }
+            if (editing) state.variantEditor?.let { ed -> VariantFields(ed) }
+        }
+        AddVariantForm(state, alreadyUsedWorkIds = rows.mapNotNull { it.work_id }.toSet(), workOptions.map { it.id to it.title })
+    }
+}
+
+@Composable
+private fun VariantFields(ed: VariantEditorState) {
+    if (!ed.loaded) return
+    Column(Modifier.padding(start = 16.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
+        OutlinedTextField(
+            ed.nameOverride, ed::editNameOverride,
+            label = { Text("Name override (blank = canon)") }, singleLine = true,
+            modifier = Modifier.fillMaxWidth(),
+        )
+        OutlinedTextField(
+            ed.summaryOverride, ed::editSummaryOverride,
+            label = { Text("Summary override") }, minLines = 2,
+            modifier = Modifier.fillMaxWidth(),
+        )
+        OutlinedTextField(
+            ed.bodyOverride, ed::editBodyOverride,
+            label = { Text("Notes override") }, minLines = 4,
+            modifier = Modifier.fillMaxWidth(),
+        )
+    }
+}
+
+@OptIn(ExperimentalMaterial3Api::class)
+@Composable
+private fun AddVariantForm(state: EntityEditorState, alreadyUsedWorkIds: Set<String>, works: List<Pair<String, String>>) {
+    var workMenuOpen by remember { mutableStateOf(false) }
+    var continuity by remember { mutableStateOf("") }
+    val available = works.filter { it.first !in alreadyUsedWorkIds }
+
+    Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+        ExposedDropdownMenuBox(expanded = workMenuOpen, onExpandedChange = { workMenuOpen = it }, modifier = Modifier.width(240.dp)) {
+            OutlinedTextField(
+                value = "", onValueChange = {}, readOnly = true, singleLine = true,
+                label = { Text("New variant for work…") },
+                trailingIcon = { ExposedDropdownMenuDefaults.TrailingIcon(workMenuOpen) },
+                modifier = Modifier.menuAnchor(ExposedDropdownMenuAnchorType.PrimaryNotEditable),
+            )
+            ExposedDropdownMenu(expanded = workMenuOpen, onDismissRequest = { workMenuOpen = false }) {
+                if (available.isEmpty()) DropdownMenuItem(text = { Text("No works without a variant") }, onClick = { workMenuOpen = false })
+                available.forEach { (id, title) ->
+                    DropdownMenuItem(text = { Text(title) }, onClick = { state.addVariant(id, null); workMenuOpen = false })
+                }
+            }
+        }
+        OutlinedTextField(
+            continuity, { continuity = it },
+            label = { Text("…or continuity key") }, singleLine = true,
+            modifier = Modifier.width(200.dp),
+        )
+        Button(
+            enabled = continuity.isNotBlank(),
+            onClick = { state.addVariant(null, continuity.trim()); continuity = "" },
+        ) { Text("Add AU") }
     }
 }

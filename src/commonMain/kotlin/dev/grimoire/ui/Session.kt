@@ -10,6 +10,7 @@ import dev.grimoire.relationship.RelationshipRepository
 import dev.grimoire.settings.SettingsStore
 import dev.grimoire.template.TemplateRepository
 import dev.grimoire.timeline.TimelineRepository
+import dev.grimoire.variant.VariantRepository
 import dev.grimoire.work.WorkRepository
 import dev.grimoire.world.WorldRepository
 import kotlinx.coroutines.CoroutineScope
@@ -23,6 +24,7 @@ class Session(
     val works: WorkRepository,
     val timeline: TimelineRepository,
     val templates: TemplateRepository,
+    val variants: VariantRepository,
     val exporter: WorldExporter,
     val exportSink: ExportSink,
     private val settings: SettingsStore,
@@ -31,7 +33,7 @@ class Session(
     var workspace by mutableStateOf<WorkspaceState?>(null); private set
     var theme by mutableStateOf(AppTheme.fromKey(settings.load()["theme"])); private set
 
-    fun openWorld(id: String) { workspace = WorkspaceState(id, entities, relationships, works, timeline, templates, exporter, exportSink, scope) }
+    fun openWorld(id: String) { workspace = WorkspaceState(id, entities, relationships, works, timeline, templates, variants, exporter, exportSink, scope) }
 
     fun closeWorld() {
         val ws = workspace ?: return

@@ -9,6 +9,7 @@ import dev.grimoire.relationship.RelationshipRepository
 import dev.grimoire.template.TemplateRepository
 import dev.grimoire.ui.EntityEditorState
 import dev.grimoire.work.WorkRepository
+import dev.grimoire.variant.VariantRepository
 import dev.grimoire.world.WorldRepository
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.test.runTest
@@ -23,6 +24,7 @@ class RelationshipRepositoryTest {
     private val ids = IdGenerator(Random(11)) { 1_700_000_000_000L }
     private val db = GrimoireDatabase(DriverFactory.create(createTempDirectory("grimoire-test").resolve("g.db")))
     private val worlds = WorldRepository(db, ids) { 1L }
+    private val variants = VariantRepository(db, ids) { 1L }
     private val works = WorkRepository(db, ids) { 1L }
     private val entities = EntityRepository(db, ids) { 1L }
     private val relationships = RelationshipRepository(db, ids) { 1L }
@@ -68,7 +70,7 @@ class RelationshipRepositoryTest {
         val w = worlds.create("Arda")
         val kaede = entities.create(w, EntityType.CHARACTER, "Kaede")
         entities.create(w, EntityType.LOCATION, "Kaede's Village")
-        val editor = EntityEditorState(kaede, entities, relationships, templates, works, backgroundScope)
+        val editor = EntityEditorState(kaede, entities, relationships, templates, works, variants, backgroundScope)
         editor.load()
         assertEquals(listOf("Kaede's Village"), editor.searchTargets("kae").first().map { it.name })
     }

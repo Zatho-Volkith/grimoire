@@ -15,6 +15,7 @@ import dev.grimoire.id.IdGenerator
 import dev.grimoire.relationship.RelationshipRepository
 import dev.grimoire.template.TemplateRepository
 import dev.grimoire.timeline.TimelineRepository
+import dev.grimoire.variant.VariantRepository
 import dev.grimoire.ui.Session
 import dev.grimoire.ui.WorkspaceSection
 import dev.grimoire.ui.handleShortcut
@@ -52,6 +53,7 @@ class ShortcutsTest {
         WorkRepository(db, ids, System::currentTimeMillis),
         TimelineRepository(db, ids, System::currentTimeMillis),
         TemplateRepository(db, ids, System::currentTimeMillis),
+        VariantRepository(db, ids, System::currentTimeMillis),
         WorldExporter(db), ExportSink { _, _ -> null }, settings,
         CoroutineScope(SupervisorJob() + Dispatchers.Default),
     )

@@ -22,6 +22,7 @@ import dev.grimoire.export.ExportSink
 import dev.grimoire.export.WorldExporter
 import dev.grimoire.template.TemplateRepository
 import dev.grimoire.timeline.TimelineRepository
+import dev.grimoire.variant.VariantRepository
 import dev.grimoire.work.WorkRepository
 import dev.grimoire.ui.App
 import dev.grimoire.ui.Session
@@ -58,6 +59,7 @@ class WorkspaceScreenTest {
     }
     private val session = Session(
         worlds, entities, relationships, works, timeline, templates,
+        VariantRepository(db, ids, System::currentTimeMillis),
         WorldExporter(db), ExportSink { _, _ -> "/fake/vault" }, settings, CoroutineScope(SupervisorJob() + Dispatchers.Default))
 
     @Test
@@ -312,5 +314,29 @@ class WorkspaceScreenTest {
         rule.waitUntilAtLeastOneExists(hasText("Departure"), 5_000)
         rule.onNodeWithText("Departure").performClick()
         rule.waitUntil(5_000) { session.workspace?.workEditor?.chapterEditor?.id == chapter }
+    }
+
+    @Test
+    fun `a work variant is added and edited from the entity editor`() {
+        val w = runBlocking { worlds.create("Arda") }
+        val kaede = runBlocking { entities.create(w, EntityType.CHARACTER, "Kaede") }
+        val fic = runBlocking { works.create(w, "Fic") }
+        session.openWorld(w)
+        rule.setContent { App(session) }
+        session.workspace!!.open(kaede)
+        rule.waitUntil(5_000) { session.workspace?.editor?.loaded == true }
+
+        rule.onNodeWithText("New variant for work…").performScrollTo().performClick()
+        rule.waitUntilAtLeastOneExists(hasText("Fic") and hasClickAction(), 5_000)
+        rule.onNode(hasText("Fic") and hasClickAction()).performClick()
+        rule.waitUntil(5_000) { session.workspace?.editor?.variantEditor?.loaded == true }
+
+        rule.onNode(hasSetTextAction() and hasText("Name override (blank = canon)")).performScrollTo()
+            .performTextInput("Kaede of the North")
+        runBlocking { session.flush() }
+
+        val v = runBlocking { session.variants.forEntity(kaede).first() }.single()
+        assertEquals("Kaede of the North", v.name_override)
+        assertEquals(fic, v.work_id)
     }
 }

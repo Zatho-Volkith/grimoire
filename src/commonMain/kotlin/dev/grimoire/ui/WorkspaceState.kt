@@ -21,6 +21,7 @@ import dev.grimoire.entity.EntityType
 import dev.grimoire.relationship.RelationshipRepository
 import dev.grimoire.template.TemplateRepository
 import dev.grimoire.timeline.TimelineRepository
+import dev.grimoire.variant.VariantRepository
 import dev.grimoire.work.WorkRepository
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.ExperimentalCoroutinesApi
@@ -41,6 +42,7 @@ class WorkspaceState(
     private val works: WorkRepository,
     private val timeline: TimelineRepository,
     private val templates: TemplateRepository,
+    private val variants: VariantRepository,
     private val exporter: WorldExporter,
     private val exportSink: ExportSink,
     private val scope: CoroutineScope,
@@ -124,7 +126,7 @@ class WorkspaceState(
         section = WorkspaceSection.ENTITIES
         if (editor?.id == id) return
         val previous = editor
-        val next = EntityEditorState(id, entities, relationships, templates, works, scope)
+        val next = EntityEditorState(id, entities, relationships, templates, works, variants, scope)
         editor = next
         scope.launch {
             previous?.flush()

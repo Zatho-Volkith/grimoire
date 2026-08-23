@@ -9,6 +9,7 @@ import dev.grimoire.relationship.RelationshipRepository
 import dev.grimoire.template.TemplateRepository
 import dev.grimoire.ui.EntityEditorState
 import dev.grimoire.work.WorkRepository
+import dev.grimoire.variant.VariantRepository
 import dev.grimoire.world.WorldRepository
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.test.runTest
@@ -24,6 +25,7 @@ class EntityRepositoryTest {
     private val ids = IdGenerator(Random(7)) { now }
     private val db = GrimoireDatabase(DriverFactory.create(createTempDirectory("grimoire-test").resolve("g.db")))
     private val worlds = WorldRepository(db, ids) { now }
+    private val variants = VariantRepository(db, ids) { now }
     private val entities = EntityRepository(db, ids) { now }
     private val relationships = RelationshipRepository(db, ids) { now }
     private val templates = TemplateRepository(db, ids) { now }
@@ -67,7 +69,7 @@ class EntityRepositoryTest {
     fun `editor debounces writes and flush persists the latest keystrokes`() = runTest {
         val w = worlds.create("Arda")
         val id = entities.create(w, EntityType.CHARACTER, "Kaede")
-        val editor = EntityEditorState(id, entities, relationships, templates, works, backgroundScope)
+        val editor = EntityEditorState(id, entities, relationships, templates, works, variants, backgroundScope)
         editor.load()
         assertTrue(editor.loaded)
 
@@ -101,7 +103,7 @@ class EntityRepositoryTest {
     fun `blank name saves as Untitled rather than empty`() = runTest {
         val w = worlds.create("Arda")
         val id = entities.create(w, EntityType.ITEM, "Sword")
-        val editor = EntityEditorState(id, entities, relationships, templates, works, backgroundScope)
+        val editor = EntityEditorState(id, entities, relationships, templates, works, variants, backgroundScope)
         editor.load()
         editor.editName("   ")
         editor.flush()
