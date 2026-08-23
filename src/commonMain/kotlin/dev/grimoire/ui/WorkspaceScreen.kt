@@ -229,6 +229,9 @@ private fun TimelineSection(ws: WorkspaceState) {
     Column(Modifier.width(300.dp).fillMaxHeight().padding(8.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
         CalendarPicker(ws)
         Button(onClick = ws::createEvent, modifier = Modifier.fillMaxWidth()) { Text("New Event") }
+        TextButton(onClick = ws::toggleTimelineView, modifier = Modifier.fillMaxWidth()) {
+            Text(if (ws.timelineView) "Back to editing" else "View timeline")
+        }
         Text("${events.size} event(s)", style = MaterialTheme.typography.labelMedium)
         LazyColumn(Modifier.fillMaxSize()) {
             items(events, key = { it.id }) { e ->
@@ -248,12 +251,15 @@ private fun TimelineSection(ws: WorkspaceState) {
     VerticalDivider()
 
     Box(Modifier.fillMaxSize()) {
-        when (val ed = ws.eventEditor) {
-            null -> Text(
-                "Select an event, or create a new one.",
-                Modifier.align(Alignment.Center), style = MaterialTheme.typography.bodyLarge,
-            )
-            else -> EventEditor(ed, onDelete = ws::deleteOpenEvent, onMove = ws::moveOpenEvent, onOpenEntity = ws::open)
+        when {
+            ws.timelineView -> TimelineViewer(ws)
+            else -> when (val ed = ws.eventEditor) {
+                null -> Text(
+                    "Select an event, or create a new one — or View timeline.",
+                    Modifier.align(Alignment.Center), style = MaterialTheme.typography.bodyLarge,
+                )
+                else -> EventEditor(ed, onDelete = ws::deleteOpenEvent, onMove = ws::moveOpenEvent, onOpenEntity = ws::open)
+            }
         }
     }
 }

@@ -806,3 +806,10 @@ calendarsForWorld:
 SELECT DISTINCT calendar_key FROM timeline_event
 WHERE world_id = ? AND deleted_at IS NULL
 ORDER BY calendar_key;
+
+participantNamesForWorld:
+SELECT p.event_id, p.entity_id, p.role, e.name
+FROM event_participant p
+JOIN timeline_event t ON t.id = p.event_id
+JOIN entity e ON e.id = p.entity_id
+WHERE t.world_id = ? AND p.deleted_at IS NULL AND t.deleted_at IS NULL AND e.deleted_at IS NULL;

@@ -7,6 +7,7 @@ import androidx.compose.ui.test.hasSetTextAction
 import androidx.compose.ui.test.hasTestTag
 import androidx.compose.ui.test.onNodeWithTag
 import androidx.compose.ui.test.hasText
+import androidx.compose.ui.test.hasTextExactly
 import androidx.compose.ui.test.junit4.createComposeRule
 import androidx.compose.ui.test.onNodeWithText
 import androidx.compose.ui.test.performClick
@@ -339,5 +340,32 @@ class WorkspaceScreenTest {
         val v = runBlocking { session.variants.forEntity(kaede).first() }.single()
         assertEquals("Kaede of the North", v.name_override)
         assertEquals(fic, v.work_id)
+    }
+
+    @Test
+    fun `timeline viewer shows era, cards, and jumps to entities and the editor`() {
+        val w = runBlocking { worlds.create("Arda") }
+        val kaede = runBlocking { entities.create(w, EntityType.CHARACTER, "Kaede") }
+        val duel = runBlocking { timeline.create(w, "The duel") }
+        runBlocking { timeline.updateEvent(duel, "The duel", "Steel at dusk.", "Year 340", "Third Age") }
+        runBlocking { timeline.addParticipant(duel, kaede, "challenger") }
+        session.openWorld(w)
+        rule.setContent { App(session) }
+
+        rule.onNodeWithText("Timeline").performClick()
+        rule.onNodeWithText("View timeline").performClick()
+        rule.waitUntilAtLeastOneExists(hasText("The duel"), 5_000)
+        rule.onNode(hasTextExactly("Third Age")).assertIsDisplayed() // era header, viewer only
+        rule.onNode(hasTextExactly("Year 340")).assertIsDisplayed() // date gutter node
+
+        // Participant chip jumps to the entity...
+        rule.onNode(hasTestTag("viewer-participant"), useUnmergedTree = true).performClick()
+        rule.waitUntil(5_000) { session.workspace?.editor?.id == kaede }
+
+        // ...back in the viewer, the card drops into the editor.
+        rule.onNodeWithText("Timeline").performClick()
+        rule.waitUntilAtLeastOneExists(hasTestTag("viewer-event"), 5_000)
+        rule.onNode(hasTestTag("viewer-event")).performClick()
+        rule.waitUntil(5_000) { session.workspace?.timelineView == false && session.workspace?.eventEditor?.id == duel }
     }
 }

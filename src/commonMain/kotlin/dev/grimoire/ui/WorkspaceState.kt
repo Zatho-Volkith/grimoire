@@ -5,6 +5,7 @@ import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.setValue
 import androidx.compose.runtime.snapshotFlow
 import dev.grimoire.db.Entity
+import dev.grimoire.db.ParticipantNamesForWorld
 import dev.grimoire.db.Source
 import dev.grimoire.db.SearchChapters
 import dev.grimoire.db.DeletedChaptersForWorld
@@ -71,6 +72,7 @@ class WorkspaceState(
     /** Which entity type a template created from the Templates section applies to. */
     var templateType by mutableStateOf(EntityType.CHARACTER); private set
     var calendar by mutableStateOf(TimelineRepository.CALENDAR); private set
+    var timelineView by mutableStateOf(false); private set
     var exportStatus by mutableStateOf<String?>(null); private set
     var wikiImport by mutableStateOf<WikiImportState?>(null); private set
     /** Bumped by [focusSearch]; the screen observes it to move focus into the search field. */
@@ -113,6 +115,10 @@ class WorkspaceState(
 
     /** Calendars this world's events use. Live. */
     val calendarList: Flow<List<String>> = timeline.calendars(worldId)
+
+    /** Participants grouped by event, for the timeline viewer. Live. */
+    val eventParticipants: Flow<Map<String, List<ParticipantNamesForWorld>>> =
+        timeline.participantNames(worldId).map { list -> list.groupBy { it.event_id } }
 
     /** All of the world's templates, grouped by entity type. Live. */
     val templateList: Flow<List<Template>> = templates.forWorld(worldId)
@@ -238,6 +244,13 @@ class WorkspaceState(
     }
 
     fun selectCalendar(key: String) { calendar = key.trim().ifEmpty { TimelineRepository.CALENDAR } }
+    fun toggleTimelineView() { timelineView = !timelineView }
+
+    /** Viewer card click: jump into editing that event. */
+    fun editEventFromViewer(id: String) {
+        timelineView = false
+        openEvent(id)
+    }
 
     fun createEvent() {
         scope.launch { openEvent(timeline.create(worldId, "New event", calendar)) }

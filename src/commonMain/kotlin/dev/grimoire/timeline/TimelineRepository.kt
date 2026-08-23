@@ -5,6 +5,7 @@ import app.cash.sqldelight.coroutines.mapToList
 import app.cash.sqldelight.coroutines.mapToOneOrNull
 import dev.grimoire.db.DeletedEventsForWorld
 import dev.grimoire.db.GrimoireDatabase
+import dev.grimoire.db.ParticipantNamesForWorld
 import dev.grimoire.db.ParticipantsForEvent
 import dev.grimoire.db.Timeline_event
 import dev.grimoire.id.IdGenerator
@@ -85,6 +86,10 @@ class TimelineRepository(
     }
 
     // --- participants ---
+
+    /** All participants across the world's events, for the viewer. */
+    fun participantNames(worldId: String): Flow<List<ParticipantNamesForWorld>> =
+        q.participantNamesForWorld(worldId).asFlow().mapToList(Dispatchers.IO)
 
     fun participants(eventId: String): Flow<List<ParticipantsForEvent>> =
         q.participantsForEvent(eventId).asFlow().mapToList(Dispatchers.IO)
