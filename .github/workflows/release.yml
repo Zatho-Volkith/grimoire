@@ -86,4 +86,6 @@ jobs:
           merge-multiple: true
       - uses: softprops/action-gh-release@v2
         with:
-          files: dist/*
+          # ** because the Linux artifact keeps its deb/ and rpm/ subfolders — a flat * silently
+          # dropped both from every release.
+          files: dist/**
