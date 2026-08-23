@@ -39,7 +39,7 @@ class WorldExporter(private val db: GrimoireDatabase) {
         val world = q.worldById(worldId).executeAsOneOrNull() ?: return@withContext emptyList()
         val entities = q.entitiesForWorld(worldId).executeAsList()
         val relationships = q.relationshipsForWorld(worldId).executeAsList()
-        val events = q.timelineForWorld(worldId, TimelineRepository.CALENDAR).executeAsList()
+        val calendars = q.calendarsForWorld(worldId).executeAsList()
         val participants = q.participantsForWorld(worldId).executeAsList().groupBy { it.event_id }
         val works = q.worksForWorld(worldId).executeAsList()
         val chaptersByWork = q.chaptersForWorld(worldId).executeAsList().groupBy { it.work_id }
@@ -67,8 +67,14 @@ class WorldExporter(private val db: GrimoireDatabase) {
                 }
             }
 
-            if (events.isNotEmpty()) {
-                add(ExportFile(listOf("Timeline.md"), timelineFile(events, participants, names)))
+            calendars.forEach { calendarKey ->
+                val events = q.timelineForWorld(worldId, calendarKey).executeAsList()
+                if (events.isNotEmpty()) {
+                    val fileName =
+                        if (calendarKey == TimelineRepository.CALENDAR) "Timeline.md"
+                        else "Timeline - ${VaultNames.sanitize(calendarKey)}.md"
+                    add(ExportFile(listOf(fileName), timelineFile(calendarKey, events, participants, names)))
+                }
             }
         }
     }
@@ -135,11 +141,12 @@ class WorldExporter(private val db: GrimoireDatabase) {
         if (c.body.isEmpty() || c.body.endsWith("\n")) c.body else c.body + "\n"
 
     private fun timelineFile(
+        calendarKey: String,
         events: List<Timeline_event>,
         participants: Map<String, List<dev.grimoire.db.ParticipantsForWorld>>,
         names: Map<String, String>,
     ): String = buildString {
-        appendLine("# Timeline")
+        appendLine(if (calendarKey == TimelineRepository.CALENDAR) "# Timeline" else "# Timeline — $calendarKey")
         events.forEach { e ->
             appendLine()
             appendLine("## ${e.title}")

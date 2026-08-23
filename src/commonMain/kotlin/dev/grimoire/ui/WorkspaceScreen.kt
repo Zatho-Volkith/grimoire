@@ -227,6 +227,7 @@ private fun TimelineSection(ws: WorkspaceState) {
     val events by ws.eventList.collectAsState(initial = emptyList())
 
     Column(Modifier.width(300.dp).fillMaxHeight().padding(8.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
+        CalendarPicker(ws)
         Button(onClick = ws::createEvent, modifier = Modifier.fillMaxWidth()) { Text("New Event") }
         Text("${events.size} event(s)", style = MaterialTheme.typography.labelMedium)
         LazyColumn(Modifier.fillMaxSize()) {
@@ -391,5 +392,38 @@ private fun SourceFilterRow(ws: WorkspaceState) {
             }
         }
         TextButton(onClick = ws::openSources) { Text("Manage") }
+    }
+}
+
+/** Pick which of the world's calendars the timeline shows; new names create new calendars. */
+@OptIn(ExperimentalMaterial3Api::class)
+@Composable
+private fun CalendarPicker(ws: WorkspaceState) {
+    val known by ws.calendarList.collectAsState(initial = emptyList())
+    val calendars = (known + ws.calendar + "default").distinct().sorted()
+    var open by remember { mutableStateOf(false) }
+    var newName by remember { mutableStateOf("") }
+
+    Column(verticalArrangement = Arrangement.spacedBy(6.dp)) {
+        ExposedDropdownMenuBox(expanded = open, onExpandedChange = { open = it }) {
+            OutlinedTextField(
+                value = ws.calendar, onValueChange = {}, readOnly = true, singleLine = true,
+                label = { Text("Calendar") },
+                trailingIcon = { ExposedDropdownMenuDefaults.TrailingIcon(open) },
+                modifier = Modifier.fillMaxWidth().menuAnchor(ExposedDropdownMenuAnchorType.PrimaryNotEditable),
+            )
+            ExposedDropdownMenu(expanded = open, onDismissRequest = { open = false }) {
+                calendars.forEach { c ->
+                    DropdownMenuItem(text = { Text(c) }, onClick = { ws.selectCalendar(c); open = false })
+                }
+            }
+        }
+        Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(4.dp)) {
+            OutlinedTextField(
+                newName, { newName = it },
+                label = { Text("New calendar") }, singleLine = true, modifier = Modifier.weight(1f),
+            )
+            TextButton(enabled = newName.isNotBlank(), onClick = { ws.selectCalendar(newName); newName = "" }) { Text("Go") }
+        }
     }
 }

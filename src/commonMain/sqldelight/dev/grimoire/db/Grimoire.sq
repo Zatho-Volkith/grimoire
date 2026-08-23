@@ -801,3 +801,8 @@ SELECT COUNT(*) FROM sync_queue;
 -- Includes tombstones on purpose: a user who deleted the built-ins shouldn't get them back.
 countBuiltinTemplates:
 SELECT COUNT(*) FROM template WHERE is_builtin = 1;
+
+calendarsForWorld:
+SELECT DISTINCT calendar_key FROM timeline_event
+WHERE world_id = ? AND deleted_at IS NULL
+ORDER BY calendar_key;

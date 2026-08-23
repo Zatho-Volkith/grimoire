@@ -70,6 +70,7 @@ class WorkspaceState(
     var templateEditor by mutableStateOf<TemplateEditorState?>(null); private set
     /** Which entity type a template created from the Templates section applies to. */
     var templateType by mutableStateOf(EntityType.CHARACTER); private set
+    var calendar by mutableStateOf(TimelineRepository.CALENDAR); private set
     var exportStatus by mutableStateOf<String?>(null); private set
     var wikiImport by mutableStateOf<WikiImportState?>(null); private set
     /** Bumped by [focusSearch]; the screen observes it to move focus into the search field. */
@@ -105,8 +106,13 @@ class WorkspaceState(
             .debounce { if (it.isBlank()) 0L else 150L }
             .flatMapLatest { q -> works.searchChapters(worldId, q) }
 
-    /** The timeline pane, in reading order. Live. */
-    val eventList: Flow<List<Timeline_event>> = timeline.events(worldId)
+    /** The timeline pane for the selected [calendar], in reading order. Live. */
+    @OptIn(ExperimentalCoroutinesApi::class)
+    val eventList: Flow<List<Timeline_event>> =
+        snapshotFlow { calendar }.flatMapLatest { timeline.events(worldId, it) }
+
+    /** Calendars this world's events use. Live. */
+    val calendarList: Flow<List<String>> = timeline.calendars(worldId)
 
     /** All of the world's templates, grouped by entity type. Live. */
     val templateList: Flow<List<Template>> = templates.forWorld(worldId)
@@ -231,8 +237,10 @@ class WorkspaceState(
         }
     }
 
+    fun selectCalendar(key: String) { calendar = key.trim().ifEmpty { TimelineRepository.CALENDAR } }
+
     fun createEvent() {
-        scope.launch { openEvent(timeline.create(worldId, "New event")) }
+        scope.launch { openEvent(timeline.create(worldId, "New event", calendar)) }
     }
 
     fun deleteOpenEvent() {

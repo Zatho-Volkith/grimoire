@@ -95,4 +95,27 @@ class TimelineRepositoryTest {
         assertEquals("The landing", row.title)
         assertEquals("Year 1", row.display_date)
     }
+
+    @Test
+    fun `calendars keep independent event lists and orderings`() = runTest {
+        val w = worlds.create("Arda")
+        val worldE = timeline.create(w, "The Sundering")
+        val storyE = timeline.create(w, "Chapter one happens", "Story order")
+        timeline.create(w, "The Return", "Story order")
+
+        assertEquals(listOf("The Sundering"), timeline.events(w).first().map { it.title })
+        assertEquals(
+            listOf("Chapter one happens", "The Return"),
+            timeline.events(w, "Story order").first().map { it.title },
+        )
+        assertEquals(listOf("Story order", "default"), timeline.calendars(w).first())
+
+        timeline.move(storyE, 1)
+        assertEquals(
+            listOf("The Return", "Chapter one happens"),
+            timeline.events(w, "Story order").first().map { it.title },
+        )
+        assertEquals(listOf("The Sundering"), timeline.events(w).first().map { it.title }, "default untouched")
+        assertEquals(1L, timeline.event(worldE).first()!!.sort_position)
+    }
 }

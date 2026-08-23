@@ -24,26 +24,31 @@ class TimelineRepository(
 ) {
     private val q get() = db.grimoireQueries
 
-    fun events(worldId: String): Flow<List<Timeline_event>> =
-        q.timelineForWorld(worldId, CALENDAR).asFlow().mapToList(Dispatchers.IO)
+    fun events(worldId: String, calendarKey: String = CALENDAR): Flow<List<Timeline_event>> =
+        q.timelineForWorld(worldId, calendarKey).asFlow().mapToList(Dispatchers.IO)
+
+    /** Every calendar this world's events use ("default" plus whatever the user named). */
+    fun calendars(worldId: String): Flow<List<String>> =
+        q.calendarsForWorld(worldId).asFlow().mapToList(Dispatchers.IO)
 
     fun event(id: String): Flow<Timeline_event?> =
         q.eventById(id).asFlow().mapToOneOrNull(Dispatchers.IO)
 
-    /** Appends an event at the end of the world's timeline. Returns its id. */
-    suspend fun create(worldId: String, title: String): String = withContext(Dispatchers.IO) {
-        val now = clock()
-        val id = ids.next()
-        db.transaction {
-            q.insertEvent(
-                id = id, world_id = worldId, calendar_key = CALENDAR, title = title,
-                description = null, display_date = null,
-                sort_position = q.nextEventPosition(worldId, CALENDAR).executeAsOne(),
-                era = null, created_at = now, updated_at = now,
-            )
+    /** Appends an event at the end of [calendarKey]'s timeline. Returns its id. */
+    suspend fun create(worldId: String, title: String, calendarKey: String = CALENDAR): String =
+        withContext(Dispatchers.IO) {
+            val now = clock()
+            val id = ids.next()
+            db.transaction {
+                q.insertEvent(
+                    id = id, world_id = worldId, calendar_key = calendarKey.trim().ifEmpty { CALENDAR },
+                    title = title, description = null, display_date = null,
+                    sort_position = q.nextEventPosition(worldId, calendarKey.trim().ifEmpty { CALENDAR }).executeAsOne(),
+                    era = null, created_at = now, updated_at = now,
+                )
+            }
+            id
         }
-        id
-    }
 
     suspend fun updateEvent(id: String, title: String, description: String?, displayDate: String?, era: String?) =
         withContext(Dispatchers.IO) {
@@ -99,6 +104,7 @@ class TimelineRepository(
     }
 
     companion object {
+        /** The calendar every world starts on. */
         const val CALENDAR = "default"
     }
 }

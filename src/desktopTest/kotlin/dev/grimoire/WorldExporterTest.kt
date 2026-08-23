@@ -108,4 +108,17 @@ class WorldExporterTest {
         assertEquals("Untitled", VaultNames.sanitize("<:>"))
         assertEquals(listOf("About.md"), exporter.export(worlds.create("Empty")).map { it.path.single() })
     }
+
+    @Test
+    fun `each calendar exports its own timeline file`() = runTest {
+        val w = worlds.create("Arda")
+        timeline.create(w, "The Sundering")
+        timeline.create(w, "Chapter one happens", "Story order")
+
+        val files = exporter.export(w)
+        assertTrue("## The Sundering" in files.content("Timeline.md"))
+        val story = files.content("Timeline - Story order.md")
+        assertTrue(story.startsWith("# Timeline — Story order"))
+        assertTrue("## Chapter one happens" in story)
+    }
 }
