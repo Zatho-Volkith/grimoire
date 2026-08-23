@@ -12,15 +12,18 @@ object Wikitext {
         var s = wikitext.replace("\r\n", "\n")
         s = comments.replace(s, "")
         s = galleries.replace(s, "")
-        s = refs.replace(s, "")
+        // Self-closed refs FIRST: they have no </ref>, so the paired pattern would otherwise
+        // lazily swallow all text from a self-closed ref to some later closing tag.
         s = refSelfClosed.replace(s, "")
+        s = refs.replace(s, "")
         s = breaks.replace(s, "\n")
         s = transformTemplates(s)
         s = removeBracketedJunk(s)
         s = wikiLinkLabeled.replace(s) { it.groupValues[2] }
         s = wikiLinkBare.replace(s) { it.groupValues[1].substringAfterLast(':') }
         s = externalLabeled.replace(s) { "[${it.groupValues[2]}](${it.groupValues[1]})" }
-        s = s.replace("'''''", "***").replace("'''", "**").replace("''", "*")
+        // Line structure BEFORE emphasis: wiki bullets are leading `*` in raw text, where bold
+        // is still ''' — converting ''' -> ** first would turn a bold-led line into a bullet.
         s = s.lines().joinToString("\n") { line ->
             val trimmed = line.trimEnd()
             when {
@@ -33,6 +36,7 @@ object Wikitext {
                 else -> trimmed
             }
         }
+        s = s.replace("'''''", "***").replace("'''", "**").replace("''", "*")
         return s.replace(Regex("\n{3,}"), "\n\n").trim()
     }
 
@@ -51,23 +55,37 @@ object Wikitext {
      */
     fun infobox(wikitext: String): Map<String, String> {
         val box = topLevelTemplates(wikitext)
-            .firstOrNull { it.name.startsWith("infobox", ignoreCase = true) } ?: return emptyMap()
-        val params = box.params.mapNotNull { p ->
+            .firstOrNull { it.name.contains("infobox", ignoreCase = true) } ?: return emptyMap()
+        val params: List<Pair<String, String>> = box.params.mapNotNull { p ->
             val eq = topLevelIndexOf(p, '=')
             if (eq < 0) null else p.take(eq).trim() to p.drop(eq + 1).trim()
-        }.toMap()
+        }
 
-        val titles = Regex("""Row (\d+) title""", RegexOption.IGNORE_CASE)
         val result = linkedMapOf<String, String>()
+        val rowTitle = Regex("""Row (\d+) title""", RegexOption.IGNORE_CASE)
+        val rowAny = Regex("""Row \d+ (title|info)""", RegexOption.IGNORE_CASE)
+
+        // Paired-row style (Superpower Wiki): Row N title = key, Row N info = value.
         for ((key, value) in params) {
-            val m = titles.matchEntire(key) ?: continue
-            val info = params.entries.firstOrNull { it.key.equals("Row ${m.groupValues[1]} info", ignoreCase = true) }?.value ?: continue
+            val m = rowTitle.matchEntire(key) ?: continue
+            val info = params.firstOrNull { it.first.equals("Row ${m.groupValues[1]} info", ignoreCase = true) }?.second ?: continue
             val cleanKey = inline(value).trimEnd(':').trim()
             val cleanValue = inline(info)
             if (cleanKey.isNotEmpty() && cleanValue.isNotEmpty()) result[cleanKey] = cleanValue
         }
+
+        // Named-param style (character infoboxes): every substantive key = value.
+        for ((key, value) in params) {
+            if (rowAny.matches(key) || key.lowercase() in presentationKeys) continue
+            val cleanValue = inline(value)
+            if (cleanValue.none { it.isLetterOrDigit() }) continue // template-only values clean to punctuation
+            val cleanKey = key.replace('_', ' ').trim().replaceFirstChar { it.uppercase() }
+            if (cleanKey.isNotEmpty()) result[cleanKey] = cleanValue
+        }
         return result
     }
+
+    private val presentationKeys = setOf("image", "imagewidth", "caption", "bgcolor", "box title")
 
     // --- internals ---
 
@@ -82,6 +100,8 @@ object Wikitext {
     private val headingPattern = Regex("""(={2,6})\s*(.*?)\s*={2,6}""")
 
     private fun headingSafe(line: String): Boolean = !line.startsWith("##")
+
+    private val quoteTemplates = setOf("quote", "blockquote", "bquote", "cquote")
 
     private data class Template(val range: IntRange, val name: String, val params: List<String>)
 
@@ -154,12 +174,19 @@ object Wikitext {
         var last = 0
         for (t in templates) {
             out.append(s, last, t.range.first)
-            if (t.name.equals("quote", ignoreCase = true) && t.params.isNotEmpty()) {
-                val text = t.params[0].trim()
-                val attribution = t.params.getOrNull(1)?.trim()
-                out.append("> ").append(text)
-                if (!attribution.isNullOrEmpty()) out.append("\n> — ").append(attribution)
-                out.append('\n')
+            if (t.name.replace(" ", "").lowercase() in quoteTemplates && t.params.isNotEmpty()) {
+                val named = t.params.mapNotNull { p ->
+                    val eq = topLevelIndexOf(p, '=')
+                    if (eq < 0) null else p.take(eq).trim().lowercase() to p.drop(eq + 1).trim()
+                }.toMap()
+                val positional = t.params.filter { topLevelIndexOf(it, '=') < 0 }
+                val text = named["text"] ?: positional.getOrNull(0)?.trim()
+                val attribution = named["speaker"] ?: named["author"] ?: named["attribution"] ?: positional.getOrNull(1)?.trim()
+                if (!text.isNullOrEmpty()) {
+                    out.append("> ").append(text)
+                    if (!attribution.isNullOrEmpty()) out.append("\n> — ").append(attribution)
+                    out.append('\n')
+                }
             }
             last = t.range.last + 1
         }
@@ -197,7 +224,9 @@ object Wikitext {
 
     /** Inline-only cleaning for infobox values: links, emphasis, breaks — no block structure. */
     private fun inline(s: String): String {
-        var v = breaks.replace(s, "; ")
+        var v = refSelfClosed.replace(s, "")
+        v = refs.replace(v, "")
+        v = breaks.replace(v, "; ")
         v = transformTemplates(v)
         v = wikiLinkLabeled.replace(v) { it.groupValues[2] }
         v = wikiLinkBare.replace(v) { it.groupValues[1].substringAfterLast(':') }
