@@ -3,6 +3,7 @@ package dev.grimoire.ui
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.setValue
+import dev.grimoire.json.JsonStringMap
 import dev.grimoire.variant.VariantRepository
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Job
@@ -20,6 +21,8 @@ import kotlinx.coroutines.withContext
 class VariantEditorState(
     val id: String,
     private val repo: VariantRepository,
+    /** The parent entity's attributes when this editor opened — placeholders and key list. */
+    val parentAttributes: Map<String, String>,
     private val scope: CoroutineScope,
 ) {
     var loaded by mutableStateOf(false); private set
@@ -27,7 +30,12 @@ class VariantEditorState(
     var nameOverride by mutableStateOf(""); private set
     var summaryOverride by mutableStateOf(""); private set
     var bodyOverride by mutableStateOf(""); private set
+    /** Only the changed keys — everything absent inherits the entity's own value. */
+    var patch by mutableStateOf<Map<String, String>>(emptyMap()); private set
     var dirty by mutableStateOf(false); private set
+
+    /** Keys worth showing: the parent's attributes plus any stale patch keys still stored. */
+    val patchKeys: List<String> get() = (parentAttributes.keys + patch.keys).distinct()
 
     private var saveJob: Job? = null
 
@@ -37,12 +45,18 @@ class VariantEditorState(
         nameOverride = v.name_override.orEmpty()
         summaryOverride = v.summary_override.orEmpty()
         bodyOverride = v.body_override.orEmpty()
+        patch = JsonStringMap.decode(v.attribute_patch)
         loaded = true
     }
 
     fun editNameOverride(v: String) = edit { nameOverride = v }
     fun editSummaryOverride(v: String) = edit { summaryOverride = v }
     fun editBodyOverride(v: String) = edit { bodyOverride = v }
+
+    /** Blank clears the override so the entity's own value shows through again. */
+    fun editPatch(key: String, v: String) = edit {
+        patch = if (v.isBlank()) patch - key else patch + (key to v)
+    }
 
     suspend fun flush() {
         saveJob?.cancelAndJoin()
@@ -65,6 +79,7 @@ class VariantEditorState(
                 nameOverride = nameOverride.ifBlank { null },
                 summaryOverride = summaryOverride.ifBlank { null },
                 bodyOverride = bodyOverride.ifBlank { null },
+                attributePatch = patch,
             )
         }
     }

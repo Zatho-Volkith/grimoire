@@ -7,6 +7,7 @@ import dev.grimoire.db.GrimoireDatabase
 import dev.grimoire.db.VariantById
 import dev.grimoire.db.VariantsForEntity
 import dev.grimoire.id.IdGenerator
+import dev.grimoire.json.JsonStringMap
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.withContext
@@ -44,13 +45,16 @@ class VariantRepository(
             }.map { id }.getOrNull()
         }
 
-    suspend fun updateContent(id: String, nameOverride: String?, summaryOverride: String?, bodyOverride: String?) =
-        withContext(Dispatchers.IO) {
-            q.updateVariantContent(
-                name_override = nameOverride, summary_override = summaryOverride,
-                body_override = bodyOverride, updated_at = clock(), id = id,
-            )
-        }
+    suspend fun updateContent(
+        id: String, nameOverride: String?, summaryOverride: String?, bodyOverride: String?,
+        attributePatch: Map<String, String>,
+    ) = withContext(Dispatchers.IO) {
+        q.updateVariantContent(
+            name_override = nameOverride, summary_override = summaryOverride,
+            body_override = bodyOverride, attribute_patch = JsonStringMap.encode(attributePatch),
+            updated_at = clock(), id = id,
+        )
+    }
 
     suspend fun softDelete(id: String) = withContext(Dispatchers.IO) {
         val now = clock()

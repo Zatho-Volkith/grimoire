@@ -166,7 +166,7 @@ class EntityEditorState(
     fun openVariant(variantId: String) {
         if (variantEditor?.id == variantId) return
         val previous = variantEditor
-        val next = VariantEditorState(variantId, variantsRepo, scope)
+        val next = VariantEditorState(variantId, variantsRepo, attributes, scope)
         variantEditor = next
         scope.launch {
             previous?.flush()

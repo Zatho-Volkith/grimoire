@@ -202,6 +202,18 @@ private fun VariantFields(ed: VariantEditorState) {
             label = { Text("Notes override") }, minLines = 4,
             modifier = Modifier.fillMaxWidth(),
         )
+        if (ed.patchKeys.isNotEmpty()) {
+            Text("Attribute overrides (blank = inherit)", style = MaterialTheme.typography.labelLarge)
+            ed.patchKeys.forEach { key ->
+                OutlinedTextField(
+                    ed.patch[key].orEmpty(), { v -> ed.editPatch(key, v) },
+                    label = { Text(key) },
+                    placeholder = { ed.parentAttributes[key]?.let { Text(it, color = MaterialTheme.colorScheme.outline) } },
+                    singleLine = true,
+                    modifier = Modifier.fillMaxWidth(),
+                )
+            }
+        }
     }
 }
 

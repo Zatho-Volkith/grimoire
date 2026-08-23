@@ -736,9 +736,9 @@ insertVariant:
 INSERT INTO variant (id, entity_id, work_id, continuity_key, attribute_patch, created_at, updated_at)
 VALUES (?, ?, ?, ?, '{}', ?, ?);
 
--- Editor save path; notes/attribute_patch are untouched until they grow UI.
+-- Editor save path; notes is untouched until it grows UI.
 updateVariantContent:
-UPDATE variant SET name_override = ?, summary_override = ?, body_override = ?, updated_at = ? WHERE id = ?;
+UPDATE variant SET name_override = ?, summary_override = ?, body_override = ?, attribute_patch = ?, updated_at = ? WHERE id = ?;
 
 softDeleteVariant:
 UPDATE variant SET deleted_at = ?, updated_at = ? WHERE id = ?;

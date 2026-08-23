@@ -48,7 +48,7 @@ class VariantRepositoryTest {
         val fic = works.create(w, "Fic")
         val v = variants.create(kaede, fic, null)!!
 
-        val editor = VariantEditorState(v, variants, backgroundScope)
+        val editor = VariantEditorState(v, variants, emptyMap(), backgroundScope)
         editor.load()
         assertEquals("In “Fic”", editor.scopeLabel)
         editor.editNameOverride("Kaede of the North")
@@ -62,5 +62,35 @@ class VariantRepositoryTest {
 
         val listed = variants.forEntity(kaede).first().single()
         assertEquals("Fic" to "Kaede of the North", listed.work_title to listed.name_override)
+    }
+
+    @Test
+    fun `attribute patches store only changed keys and blank clears back to inherit`() = runTest {
+        val w = worlds.create("Arda")
+        val kaede = entities.create(w, EntityType.CHARACTER, "Kaede")
+        entities.updateContent(kaede, "Kaede", emptyList(), null, null, null, mapOf("age" to "27", "home" to "The North"))
+        val fic = works.create(w, "Fic")
+        val v = variants.create(kaede, fic, null)!!
+
+        val editor = VariantEditorState(v, variants, mapOf("age" to "27", "home" to "The North"), backgroundScope)
+        editor.load()
+        assertEquals(listOf("age", "home"), editor.patchKeys)
+
+        editor.editPatch("age", "35")
+        editor.editPatch("home", "Night City")
+        editor.editPatch("home", "") // changed my mind: inherit again
+        editor.flush()
+
+        val row = variants.forEntity(kaede).first().single()
+        assertEquals("""{"age":"35"}""", row.attribute_patch, "only the changed key persists")
+        assertEquals(
+            """{"age":"35"}""",
+            db.grimoireQueries.entityWithVariant(fic, kaede).executeAsOne().attribute_patch,
+            "resolution query carries the patch",
+        )
+
+        val editor2 = VariantEditorState(v, variants, mapOf("age" to "27"), backgroundScope)
+        editor2.load()
+        assertEquals(mapOf("age" to "35"), editor2.patch)
     }
 }
