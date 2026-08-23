@@ -59,11 +59,14 @@ fun EntityEditor(state: EntityEditorState, onDelete: () -> Unit, onOpenEntity: (
             )
             TextButton(onClick = onDelete) { Text("Delete", color = MaterialTheme.colorScheme.error) }
         }
+        if (state.showCanonDiff) CanonDiffDialog(state)
         state.sourceLabel?.let { label ->
             Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                 Text("Canon: $label", style = MaterialTheme.typography.labelMedium, color = MaterialTheme.colorScheme.outline)
                 if (state.differsFromCanon) {
-                    Text("· differs from canon", style = MaterialTheme.typography.labelMedium, color = MaterialTheme.colorScheme.tertiary)
+                    TextButton(onClick = state::openCanonDiff) {
+                        Text("differs from canon — compare", color = MaterialTheme.colorScheme.tertiary)
+                    }
                 }
                 TextButton(onClick = state::refreshCanon) { Text("Refresh canon") }
                 state.canonStatus?.let { Text(it, style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.outline) }

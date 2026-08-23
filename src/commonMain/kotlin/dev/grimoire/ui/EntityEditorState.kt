@@ -65,8 +65,21 @@ class EntityEditorState(
     /** True when the user's text has drifted from what the wiki currently says. */
     val differsFromCanon: Boolean
         get() = canon?.let { c ->
-            name != c.name || summary != c.summary.orEmpty() || body != c.body.orEmpty()
+            name != c.name || summary != c.summary.orEmpty() || body != c.body.orEmpty() ||
+                c.attributes.any { (k, v) -> attributes[k].orEmpty() != v }
         } ?: false
+
+    var showCanonDiff by mutableStateOf(false); private set
+    fun openCanonDiff() { showCanonDiff = true }
+    fun closeCanonDiff() { showCanonDiff = false }
+
+    // Take-canon actions route through edit {} so they save like any other keystroke.
+    fun takeCanonName() { canon?.let { c -> edit { name = c.name } } }
+    fun takeCanonSummary() { canon?.let { c -> edit { summary = c.summary.orEmpty() } } }
+    fun takeCanonBody() { canon?.let { c -> edit { body = c.body.orEmpty() } } }
+    fun takeCanonAttribute(key: String) {
+        canon?.attributes?.get(key)?.let { v -> edit { attributes = attributes + (key to v) } }
+    }
 
     /** Templates this entity could use (its type, its world). Populated by [load]. */
     var templateOptions: Flow<List<Template>> = flowOf(emptyList()); private set

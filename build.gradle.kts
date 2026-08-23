@@ -8,7 +8,7 @@ plugins {
 }
 
 group = "dev.grimoire"
-version = "0.7.0"
+version = "0.7.1"
 
 kotlin {
     jvmToolchain(21)
