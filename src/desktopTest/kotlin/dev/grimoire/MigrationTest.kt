@@ -33,11 +33,8 @@ class MigrationTest {
         val driver = DriverFactory.create(file)
         val db = GrimoireDatabase(driver)
 
-        assertEquals(2L, db.grimoireQueries.let {
-            var v = 0L
-            driver.executeQuery(null, "PRAGMA user_version", { cur -> cur.next(); app.cash.sqldelight.db.QueryResult.Value(cur.getLong(0)!!) }, 0).value.also { v = it!! }
-            v
-        })
+        val migrated = driver.executeQuery(null, "PRAGMA user_version", { cur -> cur.next(); app.cash.sqldelight.db.QueryResult.Value(cur.getLong(0)!!) }, 0).value
+        assertEquals(GrimoireDatabase.Schema.version, migrated)
 
         // Pre-migration chapters are searchable: the AfterVersion rebuild backfilled the index.
         val hits = db.grimoireQueries.searchChapters("\"dawn\"*", "w").executeAsList()
@@ -45,7 +42,10 @@ class MigrationTest {
         assertEquals("Fic", hits.single().work_title)
         FtsMaintenance.integrityCheck(driver)
 
-        // And the old data survived untouched.
+        // And the old data survived untouched, with v3 defaults applied.
         assertEquals("Arda", db.grimoireQueries.selectWorlds().executeAsList().single().name)
+        driver.execute(null, "INSERT INTO timeline_event(id, world_id, calendar_key, title, sort_position, created_at, updated_at) VALUES ('e1','w','default','Old event',1,1,1)", 0)
+        val event = db.grimoireQueries.eventById("e1").executeAsOne()
+        assertEquals("right" to null, event.side to event.parent_id)
     }
 }

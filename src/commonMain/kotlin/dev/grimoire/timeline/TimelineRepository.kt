@@ -78,6 +78,27 @@ class TimelineRepository(
         q.softDeleteEvent(deleted_at = now, updated_at = now, id = id)
     }
 
+    /** Which side of the viewer spine the event's card sits on: "left" or "right". */
+    suspend fun setSide(id: String, side: String) = withContext(Dispatchers.IO) {
+        require(side == "left" || side == "right") { "side must be left or right" }
+        q.setEventSide(side = side, updated_at = clock(), id = id)
+    }
+
+    /**
+     * Links the event under [parentId] (null detaches). Sub-events nest exactly one level:
+     * the parent must be top-level, and an event with sub-events can't become one itself.
+     */
+    suspend fun setParent(id: String, parentId: String?) = withContext(Dispatchers.IO) {
+        if (parentId != null) {
+            require(parentId != id) { "an event cannot be its own parent" }
+            val parent = q.eventById(parentId).executeAsOneOrNull()
+            requireNotNull(parent) { "no such parent event" }
+            require(parent.parent_id == null) { "sub-events nest one level only" }
+            require(q.countChildEvents(id).executeAsOne() == 0L) { "an event with sub-events cannot become a sub-event" }
+        }
+        q.setEventParent(parent_id = parentId, updated_at = clock(), id = id)
+    }
+
     fun deleted(worldId: String): Flow<List<DeletedEventsForWorld>> =
         q.deletedEventsForWorld(worldId).asFlow().mapToList(Dispatchers.IO)
 

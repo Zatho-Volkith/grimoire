@@ -13,6 +13,7 @@ import kotlin.io.path.createTempDirectory
 import kotlin.random.Random
 import kotlin.test.Test
 import kotlin.test.assertEquals
+import kotlin.test.assertFailsWith
 import kotlin.test.assertTrue
 
 class TimelineRepositoryTest {
@@ -117,5 +118,27 @@ class TimelineRepositoryTest {
         )
         assertEquals(listOf("The Sundering"), timeline.events(w).first().map { it.title }, "default untouched")
         assertEquals(1L, timeline.event(worldE).first()!!.sort_position)
+    }
+
+    @Test
+    fun `sides persist and sub-events nest exactly one level`() = runTest {
+        val w = worlds.create("Arda")
+        val big = timeline.create(w, "The war")
+        val sub = timeline.create(w, "The first skirmish")
+        val other = timeline.create(w, "Unrelated")
+
+        timeline.setSide(big, "left")
+        assertEquals("left", timeline.event(big).first()!!.side)
+        assertFailsWith<IllegalArgumentException> { timeline.setSide(big, "middle") }
+
+        timeline.setParent(sub, big)
+        assertEquals(big, timeline.event(sub).first()!!.parent_id)
+
+        assertFailsWith<IllegalArgumentException>("self") { timeline.setParent(big, big) }
+        assertFailsWith<IllegalArgumentException>("two levels") { timeline.setParent(other, sub) }
+        assertFailsWith<IllegalArgumentException>("parent with children") { timeline.setParent(big, other) }
+
+        timeline.setParent(sub, null)
+        assertEquals(null, timeline.event(sub).first()!!.parent_id)
     }
 }

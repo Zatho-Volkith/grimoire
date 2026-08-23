@@ -14,7 +14,8 @@ Dev database: `~/.local/share/grimoire/grimoire.db` (per-OS path in `DriverFacto
 - `db/` — SQLDelight output + `FtsMaintenance` (raw FTS commands SQLDelight can't compile).
 - `id/` — UUIDv7 `IdGenerator`. All ids come from here.
 - `json/` — JSON-in-TEXT column helpers (kotlinx.serialization, no compiler plugin yet).
-- `<domain>/` (`world`, `entity`, `relationship`, `work`, `timeline`, `template`, `export`, `settings`) —
+- `<domain>/` (`world`, `entity`, `relationship`, `work`, `timeline`, `template`, `variant`, `wiki`,
+  `sync`, `net`, `export`, `settings`, `tutorial`) —
   one `XRepository(db, ids, clock)` per aggregate; suspend writes on `Dispatchers.IO`, reads exposed as
   SQLDelight `Flow`s so the UI is live without manual refresh. `work/Markdown.kt` is the one parser behind
   both the AO3 HTML export and the live preview. File I/O stays behind commonMain interfaces

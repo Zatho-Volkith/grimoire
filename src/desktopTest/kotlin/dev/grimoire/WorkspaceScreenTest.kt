@@ -368,4 +368,45 @@ class WorkspaceScreenTest {
         rule.onNode(hasTestTag("viewer-event")).performClick()
         rule.waitUntil(5_000) { session.workspace?.timelineView == false && session.workspace?.eventEditor?.id == duel }
     }
+
+    @Test
+    fun `viewer survives recurring eras and New Event flips back to editing`() {
+        val w = runBlocking { worlds.create("Arda") }
+        runBlocking {
+            val a = timeline.create(w, "First war"); timeline.updateEvent(a, "First war", null, null, "Third Age")
+            val b = timeline.create(w, "Interlude"); timeline.updateEvent(b, "Interlude", null, null, "Fourth Age")
+            val c = timeline.create(w, "The return"); timeline.updateEvent(c, "The return", null, null, "Third Age")
+        }
+        session.openWorld(w)
+        rule.setContent { App(session) }
+
+        rule.onNodeWithText("Timeline").performClick()
+        rule.onNodeWithText("View timeline").performClick()
+        // Recurring era = two "Third Age" headers; duplicate keys would crash the LazyColumn.
+        rule.waitUntil(5_000) { rule.onAllNodes(hasTextExactly("Third Age")).fetchSemanticsNodes().size == 2 }
+
+        rule.onNodeWithText("New Event").performClick()
+        rule.waitUntil(5_000) { session.workspace?.timelineView == false && session.workspace?.eventEditor?.loaded == true }
+    }
+
+    @Test
+    fun `viewer places cards per side and nests clickable sub-events`() {
+        val w = runBlocking { worlds.create("Arda") }
+        val big = runBlocking { timeline.create(w, "The war") }
+        val sub = runBlocking { timeline.create(w, "The first skirmish") }
+        runBlocking {
+            timeline.setSide(big, "left")
+            timeline.setParent(sub, big)
+        }
+        session.openWorld(w)
+        rule.setContent { App(session) }
+
+        rule.onNodeWithText("Timeline").performClick()
+        rule.onNodeWithText("View timeline").performClick()
+        rule.waitUntilAtLeastOneExists(hasTestTag("viewer-subevent"), 5_000)
+        rule.onNode(hasTestTag("viewer-subevent")).assertIsDisplayed()
+
+        rule.onNode(hasTestTag("viewer-subevent")).performClick()
+        rule.waitUntil(5_000) { session.workspace?.eventEditor?.id == sub && session.workspace?.timelineView == false }
+    }
 }

@@ -203,6 +203,10 @@ CREATE TABLE timeline_event (
     created_at    INTEGER NOT NULL,
     updated_at    INTEGER NOT NULL,
     deleted_at    INTEGER,
+    -- v3 columns (see 2.sqm): which side of the viewer spine, and optional parent event.
+    -- Sub-events nest exactly one level; the app enforces that, the schema just links.
+    side          TEXT    NOT NULL DEFAULT 'right', -- 'left'|'right', app-enforced (SQLDelight can't parse CHECK in ALTER)
+    parent_id     TEXT    REFERENCES timeline_event(id),
     FOREIGN KEY (world_id) REFERENCES world(id)
 );
 
@@ -813,3 +817,15 @@ FROM event_participant p
 JOIN timeline_event t ON t.id = p.event_id
 JOIN entity e ON e.id = p.entity_id
 WHERE t.world_id = ? AND p.deleted_at IS NULL AND t.deleted_at IS NULL AND e.deleted_at IS NULL;
+
+
+-- --- Timeline sides & sub-events --------------------------------------------
+
+setEventSide:
+UPDATE timeline_event SET side = ?, updated_at = ? WHERE id = ?;
+
+setEventParent:
+UPDATE timeline_event SET parent_id = ?, updated_at = ? WHERE id = ?;
+
+countChildEvents:
+SELECT COUNT(*) FROM timeline_event WHERE parent_id = ? AND deleted_at IS NULL;

@@ -253,6 +253,7 @@ class WorkspaceState(
     }
 
     fun createEvent() {
+        timelineView = false // a new event needs its editor, not the viewer
         scope.launch { openEvent(timeline.create(worldId, "New event", calendar)) }
     }
 

@@ -28,6 +28,12 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
+import androidx.compose.material3.DropdownMenuItem
+import androidx.compose.material3.ExperimentalMaterial3Api
+import androidx.compose.material3.ExposedDropdownMenuAnchorType
+import androidx.compose.material3.ExposedDropdownMenuBox
+import androidx.compose.material3.ExposedDropdownMenuDefaults
+import androidx.compose.material3.FilterChip
 import dev.grimoire.db.Entity
 import dev.grimoire.entity.EntityType
 
@@ -67,6 +73,12 @@ fun EventEditor(state: EventEditorState, onDelete: () -> Unit, onMove: (Int) -> 
                 label = { Text("Era") }, singleLine = true,
                 modifier = Modifier.weight(1f),
             )
+        }
+        Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+            Text("Viewer side:", style = MaterialTheme.typography.labelLarge)
+            FilterChip(selected = state.side == "left", onClick = { state.selectSide("left") }, label = { Text("Left") })
+            FilterChip(selected = state.side == "right", onClick = { state.selectSide("right") }, label = { Text("Right") })
+            ParentPicker(state)
         }
         OutlinedTextField(
             state.description, state::editDescription,
@@ -133,6 +145,31 @@ private fun AddParticipantForm(editor: EventEditorState) {
                     Text(e.name)
                     Text(EntityType.fromKey(e.type).label, style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.outline)
                 }
+            }
+        }
+    }
+}
+
+/** Nest this event under a bigger one (one level deep), or detach it. */
+@OptIn(ExperimentalMaterial3Api::class)
+@Composable
+private fun ParentPicker(state: EventEditorState) {
+    val options by state.parentOptions.collectAsState(initial = emptyList())
+    var open by remember { mutableStateOf(false) }
+    val current = options.firstOrNull { it.id == state.parentId }
+
+    ExposedDropdownMenuBox(expanded = open, onExpandedChange = { open = it }, modifier = Modifier.width(240.dp)) {
+        OutlinedTextField(
+            value = current?.title ?: "Top-level event",
+            onValueChange = {}, readOnly = true, singleLine = true,
+            label = { Text("Sub-event of") },
+            trailingIcon = { ExposedDropdownMenuDefaults.TrailingIcon(open) },
+            modifier = Modifier.menuAnchor(ExposedDropdownMenuAnchorType.PrimaryNotEditable),
+        )
+        ExposedDropdownMenu(expanded = open, onDismissRequest = { open = false }) {
+            DropdownMenuItem(text = { Text("Top-level event") }, onClick = { state.selectParent(null); open = false })
+            options.forEach { e ->
+                DropdownMenuItem(text = { Text(e.title) }, onClick = { state.selectParent(e.id); open = false })
             }
         }
     }

@@ -1,0 +1,5 @@
+-- v2 -> v3: timeline viewer layout — which side of the spine an event sits on,
+-- and an optional parent event (sub-events nest one level; app-enforced).
+
+ALTER TABLE timeline_event ADD COLUMN side TEXT NOT NULL DEFAULT 'right';
+ALTER TABLE timeline_event ADD COLUMN parent_id TEXT REFERENCES timeline_event(id);
