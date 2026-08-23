@@ -21,8 +21,11 @@ jobs:
             artifact: grimoire-macos-dmg
             path: build/compose/binaries/main/dmg/*.dmg
           - os: ubuntu-latest
-            artifact: grimoire-linux-deb
-            path: build/compose/binaries/main/deb/*.deb
+            artifact: grimoire-linux
+            path: |
+              build/compose/binaries/main/deb/*.deb
+              build/compose/binaries/main/rpm/*.rpm
+              build/compose/binaries/main/*.AppImage
     runs-on: ${{ matrix.os }}
     steps:
       - uses: actions/checkout@v5
@@ -35,9 +38,35 @@ jobs:
         if: runner.os == 'Linux'
         run: ./gradlew desktopTest
         shell: bash
+      - name: Install rpm tooling (Linux builds Deb + Rpm)
+        if: runner.os == 'Linux'
+        run: sudo apt-get update -q && sudo apt-get install -y -q rpm
+        shell: bash
       - name: Package
         run: ./gradlew packageDistributionForCurrentOS
         shell: bash
+      - name: Build AppImage (runs on every distro — cyberdecks welcome)
+        if: runner.os == 'Linux'
+        shell: bash
+        run: |
+          ./gradlew createDistributable
+          APPDIR=build/AppDir
+          mkdir -p "$APPDIR"
+          cp -r build/compose/binaries/main/app/grimoire/* "$APPDIR/"
+          cp packaging/grimoire-icon.png "$APPDIR/grimoire.png"
+          cat > "$APPDIR/grimoire.desktop" <<'DESKTOP'
+          [Desktop Entry]
+          Name=Grimoire
+          Exec=grimoire
+          Icon=grimoire
+          Type=Application
+          Categories=Office;
+          Comment=Local-first worldbuilding and writing
+          DESKTOP
+          ln -s bin/grimoire "$APPDIR/AppRun"
+          curl -sLo appimagetool https://github.com/AppImage/appimagetool/releases/download/continuous/appimagetool-x86_64.AppImage
+          chmod +x appimagetool
+          ./appimagetool --appimage-extract-and-run "$APPDIR" "build/compose/binaries/main/grimoire-$(cat VERSION)-x86_64.AppImage"
       - uses: actions/upload-artifact@v4
         with:
           name: ${{ matrix.artifact }}

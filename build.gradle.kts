@@ -8,7 +8,7 @@ plugins {
 }
 
 group = "dev.grimoire"
-version = "1.0.0"
+version = "1.0.1"
 
 kotlin {
     jvmToolchain(21)
@@ -62,8 +62,13 @@ compose.desktop {
     application {
         mainClass = "dev.grimoire.MainKt"
         nativeDistributions {
-            targetFormats(TargetFormat.Deb, TargetFormat.Msi, TargetFormat.Dmg)
+            targetFormats(TargetFormat.Deb, TargetFormat.Rpm, TargetFormat.Msi, TargetFormat.Dmg)
             packageName = "grimoire"
+            // The jlink runtime only bundles what's listed here; a missing module crashes the
+            // packaged app at startup (jpackage masks it as "Failed to launch JVM"). From
+            // suggestRuntimeModules, plus jdk.crypto.ec which jdeps can't see (SPI-loaded, needed
+            // for TLS to hosts requiring EC ciphers — wiki imports).
+            modules("java.instrument", "java.net.http", "java.sql", "jdk.unsupported", "jdk.crypto.ec")
             description = "Local-first worldbuilding and writing for fanfic and original fiction"
             vendor = "Grimoire"
 
@@ -80,6 +85,9 @@ compose.desktop {
             }
             macOS {
                 packageVersion = installerVersion // applies to the .app bundle AND the dmg
+            }
+            linux {
+                iconFile.set(project.file("packaging/grimoire-icon.png"))
             }
         }
     }
