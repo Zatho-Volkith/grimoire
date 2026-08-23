@@ -10,6 +10,7 @@ import dev.grimoire.entity.EntityRepository
 import dev.grimoire.export.WorldExporter
 import dev.grimoire.id.IdGenerator
 import dev.grimoire.relationship.RelationshipRepository
+import dev.grimoire.sync.SyncService
 import dev.grimoire.template.TemplateRepository
 import dev.grimoire.timeline.TimelineRepository
 import dev.grimoire.variant.VariantRepository
@@ -34,13 +35,16 @@ fun main() {
     val ids = IdGenerator(SecureRandom().asKotlinRandom(), System::currentTimeMillis)
     val clock = System::currentTimeMillis
     val scope = CoroutineScope(SupervisorJob() + Dispatchers.Main)
+    val wiki = WikiConnector(db, ids, clock, JdkFetcher())
     val session = Session(
         WorldRepository(db, ids, clock), EntityRepository(db, ids, clock),
         RelationshipRepository(db, ids, clock), WorkRepository(db, ids, clock),
-        TimelineRepository(db, ids, clock), TemplateRepository(db, ids, clock), VariantRepository(db, ids, clock), WikiConnector(db, ids, clock, JdkFetcher()),
+        TimelineRepository(db, ids, clock), TemplateRepository(db, ids, clock), VariantRepository(db, ids, clock), wiki,
         WorldExporter(db), MarkdownVaultSink(),
         FileSettingsStore(DriverFactory.appDataDir().resolve("settings.json")), scope,
     )
+
+    SyncService(db, ids, clock, wiki).start(scope)
 
     application {
         Window(

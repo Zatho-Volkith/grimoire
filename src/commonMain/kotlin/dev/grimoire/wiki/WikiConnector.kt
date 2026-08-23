@@ -58,7 +58,8 @@ class WikiConnector(
 
     /** Re-fetches the entity's page. Only `canon_snapshot` and the source row change — never user text. */
     suspend fun refresh(entityId: String): RefreshResult = withContext(Dispatchers.IO) {
-        val entity = q.entityById(entityId).executeAsOneOrNull() ?: return@withContext RefreshResult.NOT_WIKI_SOURCED
+        val entity = q.entityById(entityId).executeAsOneOrNull()
+        if (entity == null || entity.deleted_at != null) return@withContext RefreshResult.NOT_WIKI_SOURCED
         val source = q.sourceById(entity.source_id).executeAsOneOrNull()
         if (source?.kind != "fandom_wiki" || source.remote_id == null || source.remote_url == null) {
             return@withContext RefreshResult.NOT_WIKI_SOURCED

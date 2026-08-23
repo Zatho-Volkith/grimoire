@@ -759,3 +759,23 @@ UPDATE source SET revision = ?, fetched_at = ?, cached_payload = ?, updated_at =
 -- The connector's write path: canon only, never the user's columns.
 updateEntityCanon:
 UPDATE entity SET canon_snapshot = ?, updated_at = ? WHERE id = ?;
+
+
+-- --- Sync queue maintenance -------------------------------------------------
+
+entitiesWithStaleWikiSources:
+SELECT e.id FROM entity e
+JOIN source s ON s.id = e.source_id
+WHERE s.kind = 'fandom_wiki' AND e.deleted_at IS NULL AND s.deleted_at IS NULL
+  AND (s.fetched_at IS NULL OR s.fetched_at < ?);
+
+syncItemPending:
+SELECT COUNT(*) FROM sync_queue WHERE operation = ? AND target_table = ? AND target_id = ?;
+
+-- Hard DELETE on purpose: the queue is machine-local work state, not user content —
+-- completed work needs no tombstone and must never ride along in a future sync.
+deleteSyncItem:
+DELETE FROM sync_queue WHERE id = ?;
+
+markSyncFailure:
+UPDATE sync_queue SET attempts = attempts + 1, last_error = ?, next_retry_at = ? WHERE id = ?;
