@@ -2,7 +2,7 @@
 
 Local-first worldbuilding + writing desktop app. Kotlin Multiplatform (`jvm("desktop")` only),
 Compose Multiplatform, SQLDelight (SQLite 3.38 dialect, FTS5). Offline-only by design for now.
-Product notes and review rules: `PROXYAI.md`. Reference-app teardowns: `docs/reference/`.
+Product notes and review rules: `PROXYAI.md`. Local design notes/teardowns live in `docs/` (gitignored, machine-local).
 
 ## Build
 

@@ -24,3 +24,6 @@ local.properties
 
 # ProxyAI (IDE plugin) local state
 .proxyai/
+
+# Docs are local working notes, not part of the published repo
+docs/
