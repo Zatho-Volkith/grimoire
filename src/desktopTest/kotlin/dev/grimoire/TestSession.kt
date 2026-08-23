@@ -20,6 +20,13 @@ import kotlinx.coroutines.SupervisorJob
 import kotlin.io.path.createTempDirectory
 import kotlin.random.Random
 
+/** For tests that build a [Session] by hand: an [dev.grimoire.update.UpdateLauncher] that does nothing. */
+val noopUpdateLauncher = object : dev.grimoire.update.UpdateLauncher {
+    override fun canInstall(release: dev.grimoire.update.Release) = false
+    override suspend fun install(release: dev.grimoire.update.Release) {}
+    override fun openReleasePage(release: dev.grimoire.update.Release) {}
+}
+
 /** A [Session] over a fresh temp database, for tests that only need top-level state. */
 fun testSession(settings: SettingsStore, fetcher: Fetcher = Fetcher { error("no network in tests") }): Session {
     val ids = IdGenerator(Random(1), System::currentTimeMillis)
@@ -35,6 +42,7 @@ fun testSession(settings: SettingsStore, fetcher: Fetcher = Fetcher { error("no 
         VariantRepository(db, ids, System::currentTimeMillis),
         dev.grimoire.wiki.WikiConnector(db, ids, System::currentTimeMillis, fetcher),
         WorldExporter(db), ExportSink { _, _ -> null }, settings, dev.grimoire.sync.SyncStatus(),
+        dev.grimoire.update.UpdateChecker(fetcher, "0.0.0"), noopUpdateLauncher,
         CoroutineScope(SupervisorJob() + Dispatchers.Default),
     )
 }

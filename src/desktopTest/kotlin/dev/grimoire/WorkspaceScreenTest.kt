@@ -62,7 +62,9 @@ class WorkspaceScreenTest {
         worlds, entities, relationships, works, timeline, templates,
         VariantRepository(db, ids, System::currentTimeMillis),
         dev.grimoire.wiki.WikiConnector(db, ids, System::currentTimeMillis, dev.grimoire.net.Fetcher { error("no network in tests") }),
-        WorldExporter(db), ExportSink { _, _ -> "/fake/vault" }, settings, dev.grimoire.sync.SyncStatus(), CoroutineScope(SupervisorJob() + Dispatchers.Default))
+        WorldExporter(db), ExportSink { _, _ -> "/fake/vault" }, settings, dev.grimoire.sync.SyncStatus(),
+        dev.grimoire.update.UpdateChecker({ error("no network in tests") }, "0.0.0"), noopUpdateLauncher,
+        CoroutineScope(SupervisorJob() + Dispatchers.Default))
 
     @Test
     fun `create world, add a location, rename it, find it by search`() {

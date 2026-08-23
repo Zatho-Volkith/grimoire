@@ -55,7 +55,7 @@ fun WorldPickerScreen(session: Session) {
         if (worlds.isEmpty()) {
             Text("No worlds yet. Create one above.", style = MaterialTheme.typography.bodyMedium)
         }
-        LazyColumn {
+        LazyColumn(Modifier.weight(1f)) {
             items(worlds, key = { it.id }) { w ->
                 Column(
                     Modifier.fillMaxWidth().clickable { session.openWorld(w.id) }.padding(vertical = 12.dp, horizontal = 8.dp),
@@ -64,6 +64,31 @@ fun WorldPickerScreen(session: Session) {
                     w.summary?.let { Text(it, style = MaterialTheme.typography.bodySmall) }
                 }
                 HorizontalDivider()
+            }
+        }
+        UpdateRow(session)
+    }
+}
+
+@Composable
+private fun UpdateRow(session: Session) {
+    Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+        Text("Grimoire v${session.appVersion}", style = MaterialTheme.typography.bodySmall)
+        Spacer(Modifier.weight(1f))
+        when (val state = session.updateState) {
+            UpdateState.Idle -> TextButton(onClick = session::checkForUpdates) { Text("Check for updates") }
+            UpdateState.Checking -> Text("Checking…", style = MaterialTheme.typography.bodySmall)
+            UpdateState.UpToDate -> Text("Up to date", style = MaterialTheme.typography.bodySmall)
+            UpdateState.Installing -> Text("Downloading installer…", style = MaterialTheme.typography.bodySmall)
+            UpdateState.Offline -> {
+                Text("Couldn't reach GitHub", style = MaterialTheme.typography.bodySmall)
+                TextButton(onClick = session::checkForUpdates) { Text("Retry") }
+            }
+            is UpdateState.Available -> {
+                Text("v${state.release.version} available", style = MaterialTheme.typography.bodySmall)
+                Button(onClick = session::installUpdate) {
+                    Text(if (state.direct) "Install update" else "View release")
+                }
             }
         }
     }

@@ -12,6 +12,9 @@ import dev.grimoire.sync.SyncStatus
 import dev.grimoire.template.TemplateRepository
 import dev.grimoire.timeline.TimelineRepository
 import dev.grimoire.tutorial.TutorialWorld
+import dev.grimoire.update.Release
+import dev.grimoire.update.UpdateChecker
+import dev.grimoire.update.UpdateLauncher
 import dev.grimoire.variant.VariantRepository
 import dev.grimoire.wiki.WikiConnector
 import dev.grimoire.work.WorkRepository
@@ -33,10 +36,15 @@ class Session(
     val exportSink: ExportSink,
     private val settings: SettingsStore,
     val syncStatus: SyncStatus,
+    private val updates: UpdateChecker,
+    private val updateLauncher: UpdateLauncher,
     private val scope: CoroutineScope,
 ) {
+    val appVersion: String get() = updates.currentVersion
+
     var workspace by mutableStateOf<WorkspaceState?>(null); private set
     var theme by mutableStateOf(AppTheme.fromKey(settings.load()["theme"])); private set
+    var updateState by mutableStateOf<UpdateState>(UpdateState.Idle); private set
 
     fun openWorld(id: String) { workspace = WorkspaceState(id, entities, relationships, works, timeline, templates, variants, wiki, exporter, exportSink, scope) }
 
@@ -62,9 +70,47 @@ class Session(
         settings.save(settings.load() + ("theme" to t.key))
     }
 
+    fun checkForUpdates() {
+        if (updateState == UpdateState.Checking) return
+        updateState = UpdateState.Checking
+        scope.launch {
+            updateState = runCatching { updates.check() }.fold(
+                onSuccess = { release ->
+                    release?.let { UpdateState.Available(it, direct = updateLauncher.canInstall(it)) }
+                        ?: UpdateState.UpToDate
+                },
+                onFailure = { UpdateState.Offline },
+            )
+        }
+    }
+
+    /** Installs directly where the platform can (Windows MSI), else opens the release page. */
+    fun installUpdate() {
+        val available = updateState as? UpdateState.Available ?: return
+        if (!available.direct) return updateLauncher.openReleasePage(available.release)
+        updateState = UpdateState.Installing
+        scope.launch {
+            flush()
+            // On success install() exits the process; reaching onFailure means the download broke.
+            runCatching { updateLauncher.install(available.release) }
+                .onFailure { updateState = UpdateState.Offline }
+        }
+    }
+
     /** Fire-and-forget flush — the Ctrl+S path. */
     fun saveNow() { scope.launch { flush() } }
 
     /** Call before the process exits so a pending debounced save is not lost. */
     suspend fun flush() { workspace?.flush() }
+}
+
+/** Where the manual update check stands. Only ever advanced by user action. */
+sealed interface UpdateState {
+    data object Idle : UpdateState
+    data object Checking : UpdateState
+    data object UpToDate : UpdateState
+    data object Offline : UpdateState
+    data object Installing : UpdateState
+    /** [direct] — the platform can download and run the installer itself. */
+    data class Available(val release: Release, val direct: Boolean) : UpdateState
 }

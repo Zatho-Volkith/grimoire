@@ -8,7 +8,17 @@ plugins {
 }
 
 group = "dev.grimoire"
-version = "1.0.1"
+version = "1.0.2"
+
+// The running app needs to know its own version (update checker); bake it into a resource so
+// VERSION + the line above stay the only places a release bump touches.
+val generateVersionResource = tasks.register("generateVersionResource") {
+    val v = version.toString()
+    val outDir = layout.buildDirectory.dir("generated/versionResource")
+    inputs.property("version", v)
+    outputs.dir(outDir)
+    doLast { outDir.get().asFile.resolve("grimoire-version.txt").writeText(v) }
+}
 
 kotlin {
     jvmToolchain(21)
@@ -29,6 +39,7 @@ kotlin {
             implementation(libs.kotlinx.coroutines.test)
         }
         val desktopMain by getting {
+            resources.srcDir(generateVersionResource)
             dependencies {
                 implementation(compose.desktop.currentOs)
                 implementation(libs.kotlinx.coroutines.swing)
