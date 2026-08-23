@@ -58,6 +58,7 @@ fun WorkspaceScreen(session: Session, ws: WorkspaceState) {
             Text(world?.name ?: "", style = MaterialTheme.typography.titleLarge)
             Spacer(Modifier.weight(1f))
             ws.exportStatus?.let { Text(it, style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.outline) }
+            session.syncStatus.headline?.let { Text(it, style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.outline) }
             ThemeMenu(session)
             TextButton(onClick = { ws.exportWorld(world?.name ?: "World") }) { Text("Export") }
         }

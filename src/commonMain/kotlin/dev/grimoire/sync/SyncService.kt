@@ -28,6 +28,7 @@ class SyncService(
     private val maxAgeMillis: Long = 24 * 60 * 60 * 1000L,
     private val pollMillis: Long = 15 * 60 * 1000L,
     private val politeDelayMillis: Long = 2_000L,
+    val status: SyncStatus = SyncStatus(),
 ) {
     private val q get() = db.grimoireQueries
 
@@ -51,6 +52,7 @@ class SyncService(
             )
             added++
         }
+        status.pending = q.countSyncQueue().executeAsOne().toInt()
         added
     }
 
@@ -73,7 +75,10 @@ class SyncService(
                         last_error = failure.message?.take(200), next_retry_at = clock() + backoff, id = item.id,
                     )
                 }
+            status.pending = q.countSyncQueue().executeAsOne().toInt()
         }
+        status.refreshedThisSession += refreshed
+        status.lastCheckedAt = clock()
         refreshed
     }
 

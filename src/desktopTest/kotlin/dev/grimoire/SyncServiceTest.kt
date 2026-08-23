@@ -57,9 +57,14 @@ class SyncServiceTest {
         assertEquals(1, sync.enqueueStaleRefreshes())
         assertEquals(0, sync.enqueueStaleRefreshes(), "already queued = deduplicated")
 
+        assertEquals(1, sync.status.pending, "header shows the queued item")
+
         served = fixtureV2
         assertEquals(1, sync.drainPending())
         assertEquals(0L, queueSize(), "completed work leaves the queue")
+        assertEquals(0, sync.status.pending)
+        assertEquals(1, sync.status.refreshedThisSession)
+        assertEquals("Canon: 1 page(s) refreshed", sync.status.headline)
 
         val canon = CanonSnapshot.decode(entities.entity(id).first()!!.canon_snapshot)!!
         assertTrue(canon.summary!!.contains("instantly relocate"))
@@ -74,6 +79,8 @@ class SyncServiceTest {
 
         offline = true
         assertEquals(0, sync.drainPending())
+        assertEquals(1, sync.status.pending, "backing-off items still count as queued")
+        assertEquals("Canon: 1 queued", sync.status.headline)
         val item = db.grimoireQueries.nextSyncBatch(Long.MAX_VALUE, 10).executeAsList().single()
         assertEquals(1L, item.attempts)
         assertEquals("offline", item.last_error)

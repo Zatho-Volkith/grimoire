@@ -55,7 +55,7 @@ class ShortcutsTest {
         TemplateRepository(db, ids, System::currentTimeMillis),
         VariantRepository(db, ids, System::currentTimeMillis),
         dev.grimoire.wiki.WikiConnector(db, ids, System::currentTimeMillis, dev.grimoire.net.Fetcher { error("no network in tests") }),
-        WorldExporter(db), ExportSink { _, _ -> null }, settings,
+        WorldExporter(db), ExportSink { _, _ -> null }, settings, dev.grimoire.sync.SyncStatus(),
         CoroutineScope(SupervisorJob() + Dispatchers.Default),
     )
 

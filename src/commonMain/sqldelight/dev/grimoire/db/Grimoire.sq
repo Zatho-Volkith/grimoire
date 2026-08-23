@@ -793,3 +793,6 @@ UPDATE source SET label = ?, updated_at = ? WHERE id = ?;
 
 setEntitySource:
 UPDATE entity SET source_id = ?, updated_at = ? WHERE id = ?;
+
+countSyncQueue:
+SELECT COUNT(*) FROM sync_queue;

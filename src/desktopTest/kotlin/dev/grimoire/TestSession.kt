@@ -33,7 +33,7 @@ fun testSession(settings: SettingsStore, fetcher: Fetcher = Fetcher { error("no 
         TemplateRepository(db, ids, System::currentTimeMillis),
         VariantRepository(db, ids, System::currentTimeMillis),
         dev.grimoire.wiki.WikiConnector(db, ids, System::currentTimeMillis, fetcher),
-        WorldExporter(db), ExportSink { _, _ -> null }, settings,
+        WorldExporter(db), ExportSink { _, _ -> null }, settings, dev.grimoire.sync.SyncStatus(),
         CoroutineScope(SupervisorJob() + Dispatchers.Default),
     )
 }

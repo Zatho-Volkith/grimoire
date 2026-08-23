@@ -8,6 +8,7 @@ import dev.grimoire.export.ExportSink
 import dev.grimoire.export.WorldExporter
 import dev.grimoire.relationship.RelationshipRepository
 import dev.grimoire.settings.SettingsStore
+import dev.grimoire.sync.SyncStatus
 import dev.grimoire.template.TemplateRepository
 import dev.grimoire.timeline.TimelineRepository
 import dev.grimoire.variant.VariantRepository
@@ -30,6 +31,7 @@ class Session(
     val exporter: WorldExporter,
     val exportSink: ExportSink,
     private val settings: SettingsStore,
+    val syncStatus: SyncStatus,
     private val scope: CoroutineScope,
 ) {
     var workspace by mutableStateOf<WorkspaceState?>(null); private set
