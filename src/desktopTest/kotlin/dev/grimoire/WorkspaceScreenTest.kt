@@ -3,6 +3,13 @@ package dev.grimoire
 import androidx.compose.ui.test.ExperimentalTestApi
 import androidx.compose.ui.test.assertCountEquals
 import androidx.compose.ui.test.assertIsDisplayed
+import androidx.compose.ui.test.assertTextContains
+import androidx.compose.ui.test.performTextInputSelection
+import androidx.compose.ui.test.performKeyInput
+import androidx.compose.ui.test.pressKey
+import androidx.compose.ui.test.withKeyDown
+import androidx.compose.ui.input.key.Key
+import androidx.compose.ui.text.TextRange
 import androidx.compose.ui.test.onAllNodesWithTag
 import androidx.compose.ui.test.hasClickAction
 import androidx.compose.ui.test.hasSetTextAction
@@ -261,6 +268,79 @@ class WorkspaceScreenTest {
         rule.onNodeWithTag("texts-receipt", useUnmergedTree = true).assertExists()
         // One-on-one: the contact's name is the header, not a label on every bubble.
         rule.onAllNodes(hasText("Sam:"), useUnmergedTree = true).assertCountEquals(0)
+    }
+
+    @Test
+    fun `text convo dialog inserts a conversation`() {
+        val w = runBlocking { worlds.create("Arda") }
+        session.openWorld(w)
+        rule.setContent { App(session) }
+
+        rule.onNodeWithText("Works").performClick()
+        rule.onNodeWithText("New Work").performClick()
+        rule.waitUntil(5_000) { session.workspace?.workEditor?.chapterEditor?.loaded == true }
+
+        rule.onNodeWithText("Text convo").performClick()
+        rule.onNodeWithTag("convo-title").performTextInput("Alex")
+        rule.onNodeWithTag("convo-owner").performTextInput("Sam")
+        rule.onNodeWithText("+ Message").performClick()
+        rule.onNodeWithTag("convo-sender-0").assertTextContains("Sam")
+        rule.onNodeWithTag("convo-text-0").performTextInput("you up?")
+        rule.onNodeWithText("+ Message").performClick()
+        rule.onNodeWithTag("convo-sender-1").assertTextContains("Alex")
+        rule.onNodeWithTag("convo-text-1").performTextInput("nope")
+        rule.onNodeWithText("Save").performClick()
+
+        rule.waitUntil(5_000) {
+            session.workspace?.workEditor?.chapterEditor?.body == "::: texts Alex\n@me Sam\nSam: you up?\nAlex: nope\n:::"
+        }
+    }
+
+    @Test
+    fun `enter starts the next message, shift+enter breaks the line`() {
+        val w = runBlocking { worlds.create("Arda") }
+        session.openWorld(w)
+        rule.setContent { App(session) }
+        rule.onNodeWithText("Works").performClick()
+        rule.onNodeWithText("New Work").performClick()
+        rule.waitUntil(5_000) { session.workspace?.workEditor?.chapterEditor?.loaded == true }
+
+        rule.onNodeWithText("Text convo").performClick()
+        rule.onNodeWithTag("convo-title").performTextInput("Alex")
+        rule.onNodeWithTag("convo-owner").performTextInput("Sam")
+        rule.onNodeWithText("+ Message").performClick()
+        rule.onNodeWithTag("convo-text-0").performTextInput("one")
+        rule.onNodeWithTag("convo-text-0").performKeyInput { withKeyDown(Key.ShiftLeft) { pressKey(Key.Enter) } }
+        rule.onNodeWithTag("convo-text-0").performTextInput("two")
+        rule.onNodeWithTag("convo-text-0").performKeyInput { pressKey(Key.Enter) }
+
+        rule.onNodeWithTag("convo-sender-1").assertTextContains("Alex")
+        val convo = session.workspace!!.workEditor!!.chapterEditor!!.textConvo!!
+        assertEquals(listOf("one\ntwo", ""), convo.rows.map { it.text })
+    }
+
+    @Test
+    fun `text convo reopens an existing block`() {
+        val w = runBlocking { worlds.create("Arda") }
+        val work = runBlocking { works.create(w, "Fic") }
+        val chapter = runBlocking { works.chapters(work).first() }.single().id
+        val body = "Before.\n\n::: texts Alex\n@me Sam\nSam: hi\n:::"
+        runBlocking { works.updateChapter(chapter, null, body) }
+        session.openWorld(w)
+        rule.setContent { App(session) }
+
+        rule.onNodeWithText("Works").performClick()
+        rule.onNodeWithText("Fic").performClick()
+        rule.waitUntil(5_000) { session.workspace?.workEditor?.chapterEditor?.loaded == true }
+
+        rule.onNode(hasSetTextAction() and hasText("Body")).performTextInputSelection(TextRange(body.indexOf("hi")))
+        rule.onNodeWithText("Text convo").performClick()
+        rule.onNodeWithTag("convo-title").assertTextContains("Alex")
+        rule.onNodeWithTag("convo-text-0").assertTextContains("hi")
+        rule.onNodeWithText("Cancel").performClick()
+
+        rule.waitUntil(5_000) { session.workspace?.workEditor?.chapterEditor?.textConvo == null }
+        assertEquals(body, session.workspace?.workEditor?.chapterEditor?.body)
     }
 
     @Test

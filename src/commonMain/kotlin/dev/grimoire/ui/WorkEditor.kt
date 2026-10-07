@@ -106,6 +106,8 @@ fun WorkEditor(state: WorkEditorState, onDelete: () -> Unit, onOpenEntity: (Stri
 private fun ChapterPane(ed: ChapterEditorState, work: WorkEditorState, onOpenEntity: (String) -> Unit) {
     if (!ed.loaded) return
     val clipboard = LocalClipboardManager.current
+    val cast by ed.cast.collectAsState(initial = emptyList())
+    ed.textConvo?.let { TextConvoDialog(it, ed::saveTextConvo, ed::cancelTextConvo) }
 
     Column(Modifier.fillMaxSize().padding(start = 12.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
         Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(4.dp)) {
@@ -120,6 +122,7 @@ private fun ChapterPane(ed: ChapterEditorState, work: WorkEditorState, onOpenEnt
         }
         // Writing and export actions wrap rather than crowd the title off-screen.
         FlowRow(horizontalArrangement = Arrangement.spacedBy(4.dp)) {
+            TextButton(onClick = { ed.openTextConvo(cast.map { it.name }) }) { Text("Text convo") }
             TextButton(onClick = { clipboard.setText(AnnotatedString(ed.ao3Html())) }) { Text("Copy AO3 HTML") }
             TextButton(onClick = { clipboard.setText(AnnotatedString(Ao3WorkSkin.css)) }) { Text("Copy Work Skin CSS") }
             TextButton(onClick = ed::togglePreview) { Text(if (ed.showPreview) "Hide preview" else "Preview") }
