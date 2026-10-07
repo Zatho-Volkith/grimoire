@@ -89,7 +89,7 @@ private fun BlockView(block: MdBlock) {
             }
         }
 
-        is MdBlock.Texts -> Unit // bubbles arrive with TextChatView
+        is MdBlock.Texts -> TextChatView(block.chat)
 
         is MdBlock.Listing -> Column(verticalArrangement = Arrangement.spacedBy(2.dp)) {
             block.items.forEachIndexed { i, item ->
@@ -102,7 +102,7 @@ private fun BlockView(block: MdBlock) {
     }
 }
 
-private fun annotate(runs: List<MdRun>, linkColor: Color): AnnotatedString =
+internal fun annotate(runs: List<MdRun>, linkColor: Color): AnnotatedString =
     buildAnnotatedString {
         runs.forEach { r ->
             withStyle(

@@ -1,7 +1,9 @@
 package dev.grimoire
 
 import androidx.compose.ui.test.ExperimentalTestApi
+import androidx.compose.ui.test.assertCountEquals
 import androidx.compose.ui.test.assertIsDisplayed
+import androidx.compose.ui.test.onAllNodesWithTag
 import androidx.compose.ui.test.hasClickAction
 import androidx.compose.ui.test.hasSetTextAction
 import androidx.compose.ui.test.hasTestTag
@@ -238,6 +240,27 @@ class WorkspaceScreenTest {
         // Hiding the preview removes it.
         rule.onNodeWithText("Hide preview").performClick()
         rule.waitUntil(5_000) { session.workspace?.workEditor?.chapterEditor?.showPreview == false }
+    }
+
+    @Test
+    fun `texts block previews as bubbles`() {
+        val w = runBlocking { worlds.create("Arda") }
+        session.openWorld(w)
+        rule.setContent { App(session) }
+
+        rule.onNodeWithText("Works").performClick()
+        rule.onNodeWithText("New Work").performClick()
+        rule.waitUntil(5_000) { session.workspace?.workEditor?.chapterEditor?.loaded == true }
+
+        rule.onNode(hasSetTextAction() and hasText("Body"))
+            .performTextInput("::: texts Alex\n@me Sam\nSam: you up?\nAlex: nope\n~ Read\n:::")
+
+        rule.waitUntilAtLeastOneExists(hasText("you up?"), 5_000)
+        rule.onAllNodesWithTag("texts-me", useUnmergedTree = true).assertCountEquals(1)
+        rule.onAllNodesWithTag("texts-them", useUnmergedTree = true).assertCountEquals(1)
+        rule.onNodeWithTag("texts-receipt", useUnmergedTree = true).assertExists()
+        // One-on-one: the contact's name is the header, not a label on every bubble.
+        rule.onAllNodes(hasText("Sam:"), useUnmergedTree = true).assertCountEquals(0)
     }
 
     @Test
