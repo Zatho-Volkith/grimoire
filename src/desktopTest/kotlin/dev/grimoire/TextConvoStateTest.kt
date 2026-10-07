@@ -90,6 +90,24 @@ class TextConvoStateTest {
     }
 
     @Test
+    fun `handles keep their punctuation when it is harmless`() {
+        val c = convo()
+        listOf("@jordan", "-x", "~ann", "a-b").forEach { name ->
+            val k = c.addMessage(); c.editText(k, "hi"); c.editSender(k, name)
+        }
+        assertEquals(listOf("@jordan", "-x", "~ann", "a-b"), c.toChat()!!.items.map { (it as Message).sender })
+    }
+
+    @Test
+    fun `names that would read back as a marker are cleaned`() {
+        val c = convo()
+        listOf("@me Kim", "~ Lee", "\\Bo").forEach { name ->
+            val k = c.addMessage(); c.editText(k, "hi"); c.editSender(k, name)
+        }
+        assertEquals(listOf("Kim", "Lee", "Bo"), c.toChat()!!.items.map { (it as Message).sender })
+    }
+
+    @Test
     fun `names are sanitised`() {
         val c = convo()
         val k = c.addMessage(); c.editText(k, "hi"); c.editSender(k, "  Dr: Who  ")

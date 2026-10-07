@@ -6,6 +6,7 @@ import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.setValue
 import dev.grimoire.work.TextChat
 import dev.grimoire.work.TextItem
+import dev.grimoire.work.Texts
 
 enum class RowKind { MESSAGE, RECEIPT, NOTICE }
 
@@ -107,11 +108,23 @@ class TextConvoState(initial: TextChat?, private val castNames: List<String>) {
 
     private companion object {
         /**
-         * A sender name the block grammar reads back unchanged: one line, no `": "`, no leading
-         * marker characters (`-- x: hi` would read as a notice), ≤ 40 chars.
+         * A sender name the block grammar reads back unchanged: one line, no `": "`, ≤ 40 chars.
+         * Leading punctuation is kept (`@jordan` is a real handle) unless the saved line would
+         * read back as something else (`-- x: hi` is a notice); then markers are peeled off.
          */
-        fun name(raw: String): String =
-            oneLine(raw).replace(Regex(""":\s+"""), ":").trimStart('\\', '~', '-', '@', ':', ' ').take(40).trim()
+        fun name(raw: String): String {
+            var n = oneLine(raw).replace(Regex(""":\s+"""), ":").take(40).trim()
+            while (n.isNotEmpty() && !readsBack(n)) {
+                val marker = markers.firstOrNull { n.startsWith(it) }
+                n = (if (marker != null) n.removePrefix(marker) else n.drop(1)).trim()
+            }
+            return n
+        }
+
+        private val markers = listOf("@me ", "~ ", "-- ", "\\")
+
+        private fun readsBack(n: String): Boolean =
+            Texts.parse("", listOf("$n: x")) == TextChat("", null, listOf(TextItem.Message(n, "x")))
         fun oneLine(raw: String): String = raw.replace('\n', ' ').trim()
     }
 }

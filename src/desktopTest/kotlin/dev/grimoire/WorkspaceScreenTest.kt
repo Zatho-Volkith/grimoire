@@ -6,6 +6,11 @@ import androidx.compose.ui.test.assertIsDisplayed
 import androidx.compose.ui.test.assertTextContains
 import androidx.compose.ui.test.performTextInputSelection
 import androidx.compose.ui.test.performKeyInput
+import androidx.compose.ui.test.performTouchInput
+import androidx.compose.ui.test.isRoot
+import androidx.compose.ui.test.onLast
+import androidx.compose.ui.test.click
+import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.test.pressKey
 import androidx.compose.ui.test.withKeyDown
 import androidx.compose.ui.input.key.Key
@@ -317,6 +322,26 @@ class WorkspaceScreenTest {
         rule.onNodeWithTag("convo-sender-1").assertTextContains("Alex")
         val convo = session.workspace!!.workEditor!!.chapterEditor!!.textConvo!!
         assertEquals(listOf("one\ntwo", ""), convo.rows.map { it.text })
+    }
+
+    @Test
+    fun `a stray click outside does not throw away a conversation in progress`() {
+        val w = runBlocking { worlds.create("Arda") }
+        session.openWorld(w)
+        rule.setContent { App(session) }
+        rule.onNodeWithText("Works").performClick()
+        rule.onNodeWithText("New Work").performClick()
+        rule.waitUntil(5_000) { session.workspace?.workEditor?.chapterEditor?.loaded == true }
+
+        rule.onNodeWithText("Text convo").performClick()
+        rule.onNodeWithText("+ Message").performClick()
+        rule.onNodeWithTag("convo-text-0").performTextInput("half-written")
+        rule.onNodeWithTag("convo-text-0").performKeyInput { pressKey(Key.Escape) }
+        rule.onAllNodes(isRoot()).onLast().performTouchInput { click(Offset(2f, 2f)) } // the dialog layer's corner, outside its card
+        rule.waitForIdle()
+
+        val convo = session.workspace?.workEditor?.chapterEditor?.textConvo
+        assertEquals(listOf("half-written"), convo?.rows?.map { it.text })
     }
 
     @Test

@@ -39,6 +39,7 @@ import androidx.compose.ui.input.key.type
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.window.Dialog
+import androidx.compose.ui.window.DialogProperties
 import dev.grimoire.work.TextChat
 
 /**
@@ -49,7 +50,8 @@ import dev.grimoire.work.TextChat
 fun TextConvoDialog(state: TextConvoState, onSave: () -> Unit, onCancel: () -> Unit) {
     var focusKey by remember { mutableStateOf<Int?>(null) }
 
-    Dialog(onDismissRequest = onCancel) {
+    // A writing surface: only Cancel/Save close it, never a stray click or Escape.
+    Dialog(onDismissRequest = onCancel, properties = DialogProperties(dismissOnBackPress = false, dismissOnClickOutside = false)) {
         Surface(shape = MaterialTheme.shapes.large, tonalElevation = 4.dp) {
             Column(Modifier.width(900.dp).height(600.dp).padding(20.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
                 Text("Text conversation", style = MaterialTheme.typography.titleLarge)
