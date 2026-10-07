@@ -3,6 +3,8 @@ package dev.grimoire
 import dev.grimoire.work.Markdown
 import dev.grimoire.work.MdBlock
 import dev.grimoire.work.MdRun
+import dev.grimoire.work.TextChat
+import dev.grimoire.work.TextItem
 import kotlin.test.Test
 import kotlin.test.assertEquals
 
@@ -35,5 +37,31 @@ class MarkdownParserTest {
     fun `quotes contain their own parsed blocks`() {
         val quote = Markdown.parse("> line one\n> \n> line two").single() as MdBlock.Quote
         assertEquals(2, quote.blocks.size) // the bare `>` splits two paragraphs
+    }
+
+    @Test
+    fun `texts block is its own block`() {
+        assertEquals(
+            listOf(
+                MdBlock.Paragraph(listOf(listOf(MdRun("Before.")))),
+                MdBlock.Texts(TextChat("Alex", null, listOf(TextItem.Message("Alex", "hi")))),
+                MdBlock.Paragraph(listOf(listOf(MdRun("After.")))),
+            ),
+            Markdown.parse("Before.\n::: texts Alex\nAlex: hi\n:::\nAfter."),
+        )
+    }
+
+    @Test
+    fun `unclosed texts block runs to the end`() {
+        val block = Markdown.parse("::: texts\nA: x\n\nB: y").single() as MdBlock.Texts
+        assertEquals(listOf(TextItem.Message("A", "x"), TextItem.Message("B", "y")), block.chat.items)
+    }
+
+    @Test
+    fun `other colon fences stay prose`() {
+        assertEquals(
+            listOf(MdBlock.Paragraph(listOf(listOf(MdRun(":::note")), listOf(MdRun("hello"))))),
+            Markdown.parse(":::note\nhello"),
+        )
     }
 }

@@ -89,6 +89,8 @@ private fun BlockView(block: MdBlock) {
             }
         }
 
+        is MdBlock.Texts -> Unit // bubbles arrive with TextChatView
+
         is MdBlock.Listing -> Column(verticalArrangement = Arrangement.spacedBy(2.dp)) {
             block.items.forEachIndexed { i, item ->
                 Row {

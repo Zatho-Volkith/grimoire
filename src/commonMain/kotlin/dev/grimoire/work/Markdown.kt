@@ -16,11 +16,13 @@ sealed interface MdBlock {
     data class Quote(val blocks: List<MdBlock>) : MdBlock
     data class Listing(val ordered: Boolean, val items: List<List<MdRun>>) : MdBlock
     data object Hr : MdBlock
+    /** A `::: texts` conversation (see [Texts]). */
+    data class Texts(val chat: TextChat) : MdBlock
 }
 
 /**
  * Parser for the prose subset of Markdown that chapter bodies use — what Obsidian renders:
- * paragraphs with soft line breaks, `# headings`, `> quotes`, `---` scene breaks, flat lists,
+ * paragraphs with soft line breaks, `# headings`, `::: texts` conversations, `> quotes`, `---` scene breaks, flat lists,
  * `*em*`/`**strong**`/`***both***`/`_em_`/`~~strike~~`, `[links](url)`, and backslash escapes.
  *
  * One model, two consumers — [Ao3Markdown] renders it as AO3's allowed HTML and the editor's
@@ -36,6 +38,15 @@ object Markdown {
             val trimmed = lines[i].trim()
             when {
                 trimmed.isEmpty() -> i++
+
+                Texts.fenceTitle(trimmed) != null -> {
+                    val title = Texts.fenceTitle(trimmed)!!
+                    val inner = mutableListOf<String>()
+                    i++
+                    while (i < lines.size && !Texts.isCloseFence(lines[i])) inner += lines[i++]
+                    i++ // the closing fence, if any
+                    blocks += MdBlock.Texts(Texts.parse(title, inner))
+                }
 
                 hrPattern.matches(trimmed) -> { blocks += MdBlock.Hr; i++ }
 
@@ -76,6 +87,7 @@ object Markdown {
                     val para = mutableListOf<List<MdRun>>()
                     while (i < lines.size && lines[i].trim().let {
                             it.isNotEmpty() && !hrPattern.matches(it) && headingLevel(it) == 0 &&
+                                Texts.fenceTitle(it) == null &&
                                 !it.startsWith(">") && !bulletPattern.matches(it) && !orderedPattern.matches(it)
                         }
                     ) {

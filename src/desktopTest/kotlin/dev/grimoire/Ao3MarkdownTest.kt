@@ -3,6 +3,7 @@ package dev.grimoire
 import dev.grimoire.work.Ao3Markdown
 import kotlin.test.Test
 import kotlin.test.assertEquals
+import kotlin.test.assertTrue
 
 class Ao3MarkdownTest {
 
@@ -80,5 +81,53 @@ class Ao3MarkdownTest {
     fun `empty input gives empty output`() {
         assertEquals("", Ao3Markdown.toHtml(""))
         assertEquals("", Ao3Markdown.toHtml("\n\n"))
+    }
+
+    private val chatSource = """
+        ::: texts Alex
+        @me Sam
+        Sam: you up?
+        Alex: unfortunately
+        Sam: same
+        ~ Read 2:15 AM
+        -- Alex added Jordan to the chat
+        :::
+    """.trimIndent()
+
+    @Test
+    fun `one-on-one chat html`() {
+        assertEquals(
+            """
+            <div class="gt-chat">
+            <p class="gt-header">Alex</p>
+            <p class="gt-msg gt-me"><span class="gt-name">Sam:</span> you up?</p>
+            <p class="gt-msg gt-them"><span class="gt-name">Alex:</span> unfortunately</p>
+            <p class="gt-msg gt-me"><span class="gt-name">Sam:</span> same</p>
+            <p class="gt-receipt">Read 2:15 AM</p>
+            <p class="gt-notice"><em>Alex added Jordan to the chat</em></p>
+            </div>
+            """.trimIndent(),
+            Ao3Markdown.toHtml(chatSource),
+        )
+    }
+
+    @Test
+    fun `group chat html`() {
+        val html = Ao3Markdown.toHtml(chatSource.replace("\n:::", "\nJordan: what did I miss\n:::"))
+        assertTrue(html.startsWith("<div class=\"gt-chat gt-group\">\n"), html)
+    }
+
+    @Test
+    fun `blank title and sender-less message`() {
+        assertEquals(
+            "<div class=\"gt-chat\">\n<p class=\"gt-msg gt-them\">hello &lt;b&gt; &amp; &quot;x&quot;</p>\n</div>",
+            Ao3Markdown.toHtml("::: texts\nhello <b> & \"x\"\n:::"),
+        )
+    }
+
+    @Test
+    fun `inline formatting and breaks in a bubble`() {
+        val html = Ao3Markdown.toHtml("::: texts\nA: *hi*\\nthere\n:::")
+        assertTrue(html.contains("<span class=\"gt-name\">A:</span> <em>hi</em><br />there</p>"), html)
     }
 }
