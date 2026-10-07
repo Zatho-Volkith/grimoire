@@ -1,6 +1,8 @@
 package dev.grimoire
 
 import dev.grimoire.db.GrimoireDatabase
+import androidx.compose.ui.text.TextRange
+import androidx.compose.ui.text.input.TextFieldValue
 import dev.grimoire.ui.ChapterEditorState
 import dev.grimoire.work.WorkRepository
 import dev.grimoire.work.WorkStatus
@@ -115,5 +117,29 @@ class WorkRepositoryTest {
         assertEquals("She left at dawn.", row.body)
         assertEquals(4L, row.word_count)
         assertEquals(4L, editor.wordCount)
+    }
+
+    @Test
+    fun `chapter editor tracks cursor and replaces blocks`() = runTest {
+        val w = worlds.create("Arda")
+        val work = works.create(w, "Fic")
+        val c1 = works.chapters(work).first().single().id
+        val editor = ChapterEditorState(c1, works, entities, w, backgroundScope)
+        editor.load()
+
+        editor.editBodyValue(TextFieldValue("one two", TextRange(3)))
+        assertEquals(TextRange(3), editor.selection)
+        assertTrue(editor.dirty)
+        editor.flush()
+
+        // Moving the cursor alone is not an edit.
+        editor.editBodyValue(TextFieldValue("one two", TextRange(1)))
+        assertEquals(TextRange(1), editor.selection)
+        assertEquals(false, editor.dirty)
+
+        editor.editBodyValue(TextFieldValue("one two", TextRange(3)))
+        editor.replaceTextBlock(null, "::: texts\nhi\n:::")
+        editor.flush()
+        assertEquals("one\n\n::: texts\nhi\n:::\n\n two", works.chapters(work).first().single().body)
     }
 }

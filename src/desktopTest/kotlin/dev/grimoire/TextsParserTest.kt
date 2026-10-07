@@ -109,6 +109,41 @@ class TextsParserTest {
         chats.forEach { assertEquals(it, reparse(Texts.serialize(it))) }
     }
 
+    private val bodyWithBlock = "a\n\n::: texts X\nX: hi\n:::\n\nb"
+    private val block = "::: texts X\nX: hi\n:::"
+
+    @Test
+    fun `block range at cursor`() {
+        val inside = bodyWithBlock.indexOf("hi")
+        assertEquals(block, bodyWithBlock.substring(Texts.blockRangeAt(bodyWithBlock, inside)!!))
+        assertEquals(block, bodyWithBlock.substring(Texts.blockRangeAt(bodyWithBlock, bodyWithBlock.lastIndexOf(":::") + 3)!!))
+        assertEquals(block, bodyWithBlock.substring(Texts.blockRangeAt(bodyWithBlock, bodyWithBlock.indexOf(":::"))!!))
+        assertNull(Texts.blockRangeAt(bodyWithBlock, 0))
+        assertNull(Texts.blockRangeAt(bodyWithBlock, bodyWithBlock.length))
+
+        val unclosed = "::: texts\nA: x"
+        assertEquals(unclosed.indices, Texts.blockRangeAt(unclosed, unclosed.length))
+
+        val crlf = bodyWithBlock.replace("\n", "\r\n")
+        val found = crlf.substring(Texts.blockRangeAt(crlf, crlf.indexOf("hi"))!!)
+        assertTrue(found.startsWith(":::") && found.endsWith(":::"), found)
+    }
+
+    @Test
+    fun `splice inserts as its own block`() {
+        val b = "::: texts\nhi\n:::"
+        assertEquals("one\n\n$b\n\n two" to "one\n\n$b".length, Texts.splice("one two", null, 3, b))
+        assertEquals(b to b.length, Texts.splice("", null, 0, b))
+        assertEquals("a\n\n$b\n\nb", Texts.splice("a\n\nb", null, 3, b).first)
+    }
+
+    @Test
+    fun `splice replaces an existing block`() {
+        val b = "::: texts Y\nY: yo\n:::"
+        val range = Texts.blockRangeAt(bodyWithBlock, bodyWithBlock.indexOf("hi"))
+        assertEquals("a\n\n$b\n\nb", Texts.splice(bodyWithBlock, range, 0, b).first)
+    }
+
     @Test
     fun `a lone backslash before n or a break is written as an escaped backslash`() {
         val typed = TextChat("", null, listOf(Message("A", """a\nb"""), Message("A", """end\""")))

@@ -96,6 +96,54 @@ object Texts {
         }
     }
 
+    /**
+     * The character range of the texts block containing [cursor] in the raw chapter [body]
+     * (fence line start through the end of the closing `:::`, or the body's end when unclosed),
+     * or null when the cursor is outside every block. Cursor positions on either fence count.
+     */
+    fun blockRangeAt(body: String, cursor: Int): IntRange? {
+        var openStart = -1
+        var lineStart = 0
+        while (lineStart <= body.length) {
+            val lineEnd = body.indexOf('\n', lineStart).let { if (it < 0) body.length else it }
+            val line = body.substring(lineStart, lineEnd).trimEnd('\r')
+            if (openStart < 0) {
+                if (fenceTitle(line) != null) openStart = lineStart
+            } else if (isCloseFence(line)) {
+                val end = lineStart + line.length
+                if (cursor in openStart..end) return openStart until end
+                openStart = -1
+            }
+            lineStart = lineEnd + 1
+        }
+        return if (openStart >= 0 && cursor >= openStart) openStart until body.length else null
+    }
+
+    /**
+     * Puts [block] into [body]: over [range] when editing an existing block, otherwise at
+     * [cursor] with blank lines around it so it parses as its own block. Returns the new body
+     * and the cursor position just after the block.
+     */
+    fun splice(body: String, range: IntRange?, cursor: Int, block: String): Pair<String, Int> {
+        if (range != null) {
+            val before = body.substring(0, range.first)
+            return before + block + body.substring(range.last + 1) to before.length + block.length
+        }
+        val before = body.substring(0, cursor)
+        val after = body.substring(cursor)
+        val lead = when {
+            before.isEmpty() || before.endsWith("\n\n") -> ""
+            before.endsWith("\n") -> "\n"
+            else -> "\n\n"
+        }
+        val trail = when {
+            after.isEmpty() || after.startsWith("\n\n") -> ""
+            after.startsWith("\n") -> "\n"
+            else -> "\n\n"
+        }
+        return before + lead + block + trail + after to before.length + lead.length + block.length
+    }
+
     /** `\\` stays (the inline parser shows it as one backslash); `\n` becomes a line break. */
     private fun decode(s: String): String {
         if ('\\' !in s) return s

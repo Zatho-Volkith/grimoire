@@ -6,7 +6,10 @@ import androidx.compose.runtime.setValue
 import dev.grimoire.db.CastForChapter
 import dev.grimoire.db.Entity
 import dev.grimoire.entity.EntityRepository
+import androidx.compose.ui.text.TextRange
+import androidx.compose.ui.text.input.TextFieldValue
 import dev.grimoire.work.Ao3Markdown
+import dev.grimoire.work.Texts
 import dev.grimoire.work.WorkRepository
 import dev.grimoire.work.Words
 import kotlinx.coroutines.CoroutineScope
@@ -53,6 +56,32 @@ class ChapterEditorState(
     fun editTitle(v: String) = edit { title = v }
     fun togglePreview() { showPreview = !showPreview }
     fun editBody(v: String) = edit { body = v }
+
+    /** Where the cursor sits in [body] — what *Text convo* opens or inserts at. UI-only. */
+    var selection by mutableStateOf(TextRange.Zero); private set
+
+    private var composition by mutableStateOf<TextRange?>(null)
+
+    /** What the body field shows: saved text plus cursor and any in-progress IME composition. */
+    val bodyValue: TextFieldValue
+        get() = TextFieldValue(body, selection.within(body), composition?.within(body))
+
+    private fun TextRange.within(s: String) = TextRange(start.coerceIn(0, s.length), end.coerceIn(0, s.length))
+
+    /** Body field change: the cursor always moves; only a text change counts as an edit. */
+    fun editBodyValue(v: TextFieldValue) {
+        selection = v.selection
+        composition = v.composition
+        if (v.text != body) editBody(v.text)
+    }
+
+    /** Writes a texts [block] over [range] (an existing block) or at the cursor, then moves the cursor past it. */
+    fun replaceTextBlock(range: IntRange?, block: String) {
+        val (next, cursor) = Texts.splice(body, range, selection.start.coerceIn(0, body.length), block)
+        editBody(next)
+        selection = TextRange(cursor)
+        composition = null
+    }
 
     /** The current body rendered as AO3-ready HTML, for pasting into the AO3 work form. */
     fun ao3Html(): String = Ao3Markdown.toHtml(body)

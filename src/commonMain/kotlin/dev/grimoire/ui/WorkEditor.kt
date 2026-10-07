@@ -128,7 +128,7 @@ private fun ChapterPane(ed: ChapterEditorState, work: WorkEditorState, onOpenEnt
         CastRow(ed, onOpenEntity)
         Row(Modifier.fillMaxWidth().weight(1f), horizontalArrangement = Arrangement.spacedBy(12.dp)) {
             OutlinedTextField(
-                ed.body, ed::editBody,
+                ed.bodyValue, ed::editBodyValue,
                 label = { Text("Body") },
                 modifier = Modifier.weight(1f).fillMaxHeight(),
             )
