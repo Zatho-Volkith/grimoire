@@ -158,6 +158,30 @@ object TutorialWorld {
 
         **Copy AO3 HTML** converts this exact Markdown into the HTML AO3's editor accepts — paste it straight into a work form. **Export** (in the header) writes the whole world as an Obsidian-ready vault of .md files, wikilinks and all.
 
+        ## Text conversations
+
+        Click **Text convo** to write a text-message exchange row by row — Enter starts the next message, and the sender flips to whoever's replying. Put your cursor inside one of these and click it again to edit:
+
+        ::: texts Josselin
+        @me Mira
+        Mira: the coastline moved again
+        Josselin: *again?* that's twice this week
+        Mira: tell the lighthouse to hold still
+        ~ Read 11:52 PM
+        :::
+
+        Group chats name each sender automatically:
+
+        ::: texts Wayfinders' Guild
+        @me Mira
+        -- Harbourmaster added Josselin to the chat
+        Harbourmaster: who moved the Shallows
+        Josselin: not me, I only keep the light
+        Mira: I'll draw a new map
+        :::
+
+        On AO3, bubbles need a **Work Skin**: click **Copy Work Skin CSS**, paste it into AO3 under *Dashboard → Skins → Create Work Skin* once, then pick that skin under *Select Work Skin* when you post. Readers who turn creator styles off still see a plain, readable chat log.
+
         Chapters reorder with *Move up / Move down*, and **Search all chapters** (in the Works list) digs through everything you've written.
     """.trimIndent()
 

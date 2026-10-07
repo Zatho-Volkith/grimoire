@@ -8,7 +8,7 @@ plugins {
 }
 
 group = "dev.grimoire"
-version = "1.0.2"
+version = "1.1.0"
 
 // The running app needs to know its own version (update checker); bake it into a resource so
 // VERSION + the line above stay the only places a release bump touches.

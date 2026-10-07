@@ -50,6 +50,10 @@ class TutorialWorldTest {
             assertTrue(Ao3Markdown.toHtml(c.body).contains("<p>"), "${c.title} converts")
         }
         assertEquals(2, session.works.cast(chapters[2].id).first().size, "chapter 3 has its cast")
+        val writing = Ao3Markdown.toHtml(chapters[1].body)
+        assertTrue("<div class=\"gt-chat\">" in writing, "the Writing chapter demos a one-on-one text conversation")
+        assertTrue("<div class=\"gt-chat gt-group\">" in writing, "...and a group chat")
+        assertTrue("class=\"gt-receipt\"" in writing && "class=\"gt-notice\"" in writing, "...with a receipt and a notice")
 
         // Two calendars; the variant demo is in place.
         assertEquals(listOf("Story order", "default"), session.timeline.calendars(w).first())
