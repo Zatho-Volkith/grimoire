@@ -9,6 +9,8 @@ import dev.grimoire.entity.EntityRepository
 import androidx.compose.ui.text.TextRange
 import androidx.compose.ui.text.input.TextFieldValue
 import dev.grimoire.work.Ao3Markdown
+import dev.grimoire.work.Markdown
+import dev.grimoire.work.MdBlock
 import dev.grimoire.work.Texts
 import dev.grimoire.work.WorkRepository
 import dev.grimoire.work.Words
@@ -73,6 +75,30 @@ class ChapterEditorState(
         selection = v.selection
         composition = v.composition
         if (v.text != body) editBody(v.text)
+    }
+
+    // --- text conversations: the dialog edits a copy; the body changes only on save.
+
+    var textConvo by mutableStateOf<TextConvoState?>(null); private set
+    private var textConvoRange: IntRange? = null
+
+    /** Opens the dialog on the conversation under the cursor, or on a new one inserted there. */
+    fun openTextConvo(castNames: List<String>) {
+        val range = Texts.blockRangeAt(body, selection.start.coerceIn(0, body.length))
+        val existing = range?.let { (Markdown.parse(body.substring(it)).firstOrNull() as? MdBlock.Texts)?.chat }
+        textConvoRange = range
+        textConvo = TextConvoState(existing, castNames)
+    }
+
+    /** An all-blank conversation saves nothing — an existing block is left as it was. */
+    fun saveTextConvo() {
+        textConvo?.toChat()?.let { replaceTextBlock(textConvoRange, Texts.serialize(it)) }
+        cancelTextConvo()
+    }
+
+    fun cancelTextConvo() {
+        textConvo = null
+        textConvoRange = null
     }
 
     /** Writes a texts [block] over [range] (an existing block) or at the cursor, then moves the cursor past it. */

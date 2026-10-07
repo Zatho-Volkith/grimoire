@@ -142,4 +142,44 @@ class WorkRepositoryTest {
         editor.flush()
         assertEquals("one\n\n::: texts\nhi\n:::\n\n two", works.chapters(work).first().single().body)
     }
+
+    @Test
+    fun `text convo open, save, cancel`() = runTest {
+        val w = worlds.create("Arda")
+        val work = works.create(w, "Fic")
+        val c1 = works.chapters(work).first().single().id
+        val body = "Intro.\n\n::: texts Alex\n@me Sam\nSam: hi\n:::\n\nOutro."
+        works.updateChapter(c1, null, body)
+        val editor = ChapterEditorState(c1, works, entities, w, backgroundScope)
+        editor.load()
+
+        // Cancel leaves the body byte-identical and clean.
+        editor.editBodyValue(TextFieldValue(body, TextRange(body.indexOf("hi"))))
+        editor.openTextConvo(emptyList())
+        val opened = editor.textConvo!!
+        assertEquals("Alex", opened.title)
+        opened.editText(opened.rows.single().key, "changed")
+        editor.cancelTextConvo()
+        assertNull(editor.textConvo)
+        assertEquals(body, editor.body)
+        assertEquals(false, editor.dirty)
+
+        // Save replaces only that block.
+        editor.openTextConvo(emptyList())
+        val convo = editor.textConvo!!
+        convo.editText(convo.rows.single().key, "hello")
+        editor.saveTextConvo()
+        assertNull(editor.textConvo)
+        editor.flush()
+        assertEquals(body.replace("Sam: hi", "Sam: hello"), works.chapters(work).first().single().body)
+
+        // Outside any block: a fresh conversation inserted at the cursor.
+        editor.editBodyValue(TextFieldValue(editor.body, TextRange(editor.body.length)))
+        editor.openTextConvo(listOf("Mira"))
+        assertEquals("", editor.textConvo!!.title)
+        assertEquals(listOf("Mira"), editor.textConvo!!.senderSuggestions)
+        editor.textConvo!!.let { it.editText(it.addMessage(), "new") }
+        editor.saveTextConvo()
+        assertTrue(editor.body.endsWith("Outro.\n\n::: texts\nnew\n:::"), editor.body)
+    }
 }
