@@ -37,6 +37,7 @@ import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.AnnotatedString
 import androidx.compose.ui.unit.dp
+import dev.grimoire.work.Ao3WorkSkin
 import dev.grimoire.work.WorkStatus
 
 /** One work: metadata row, chapter list, and the open chapter's Markdown editor. */
@@ -100,6 +101,7 @@ fun WorkEditor(state: WorkEditorState, onDelete: () -> Unit, onOpenEntity: (Stri
     }
 }
 
+@OptIn(ExperimentalLayoutApi::class)
 @Composable
 private fun ChapterPane(ed: ChapterEditorState, work: WorkEditorState, onOpenEntity: (String) -> Unit) {
     if (!ed.loaded) return
@@ -114,9 +116,13 @@ private fun ChapterPane(ed: ChapterEditorState, work: WorkEditorState, onOpenEnt
             )
             TextButton(onClick = { work.moveOpenChapter(-1) }) { Text("Move up") }
             TextButton(onClick = { work.moveOpenChapter(1) }) { Text("Move down") }
-            TextButton(onClick = { clipboard.setText(AnnotatedString(ed.ao3Html())) }) { Text("Copy AO3 HTML") }
-            TextButton(onClick = ed::togglePreview) { Text(if (ed.showPreview) "Hide preview" else "Preview") }
             TextButton(onClick = work::deleteOpenChapter) { Text("Delete", color = MaterialTheme.colorScheme.error) }
+        }
+        // Writing and export actions wrap rather than crowd the title off-screen.
+        FlowRow(horizontalArrangement = Arrangement.spacedBy(4.dp)) {
+            TextButton(onClick = { clipboard.setText(AnnotatedString(ed.ao3Html())) }) { Text("Copy AO3 HTML") }
+            TextButton(onClick = { clipboard.setText(AnnotatedString(Ao3WorkSkin.css)) }) { Text("Copy Work Skin CSS") }
+            TextButton(onClick = ed::togglePreview) { Text(if (ed.showPreview) "Hide preview" else "Preview") }
         }
         Text("${ed.wordCount} words · Markdown", style = MaterialTheme.typography.labelMedium, color = MaterialTheme.colorScheme.outline)
         CastRow(ed, onOpenEntity)
