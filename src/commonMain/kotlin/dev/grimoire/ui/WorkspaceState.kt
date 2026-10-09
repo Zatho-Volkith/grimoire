@@ -274,7 +274,7 @@ class WorkspaceState(
     fun openTemplate(id: String) {
         if (templateEditor?.id == id) return
         val previous = templateEditor
-        val next = TemplateEditorState(id, templates, scope)
+        val next = TemplateEditorState(id, worldId, templates, scope)
         templateEditor = next
         scope.launch {
             previous?.flush()

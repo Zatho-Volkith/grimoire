@@ -246,6 +246,27 @@ class WorkspaceScreenTest {
     }
 
     @Test
+    fun `typing several options into the options field stores them all`() {
+        val w = runBlocking { worlds.create("Arda") }
+        session.openWorld(w)
+        rule.setContent { App(session) }
+
+        rule.onNodeWithText("Templates").performClick()
+        rule.onNodeWithText("New Template").performClick()
+        rule.waitUntil(5_000) { session.workspace?.templateEditor?.loaded == true }
+        rule.onNode(hasSetTextAction() and hasText("New field")).performTextInput("Language")
+        rule.onNodeWithText("Add field").performClick()
+        rule.waitUntilAtLeastOneExists(hasTestTag("field-options-language"), 5_000)
+
+        rule.onNodeWithTag("field-options-language").performTextInput("a, b")
+        runBlocking { session.flush() }
+
+        val id = session.workspace!!.templateEditor!!.id
+        val stored = dev.grimoire.template.TemplateFields.decode(runBlocking { templates.template(id).first() }!!.fields)
+        assertEquals(listOf("a", "b"), stored.single().options)
+    }
+
+    @Test
     fun `picking a race through the field autofills religion`() {
         dev.grimoire.template.BuiltinTemplates.seed(db, ids, System::currentTimeMillis)
         val w = runBlocking { worlds.create("Arda") }

@@ -28,6 +28,7 @@ import kotlinx.coroutines.withContext
  */
 class TemplateEditorState(
     val id: String,
+    private val worldId: String,
     private val repo: TemplateRepository,
     private val scope: CoroutineScope,
 ) {
@@ -48,7 +49,7 @@ class TemplateEditorState(
         name = t.name
         fields = TemplateFields.decode(t.fields)
         bodyScaffold = t.body_scaffold.orEmpty()
-        worldTemplates = t.world_id?.let { repo.forWorld(it).first() }.orEmpty().filter { it.id != id }
+        worldTemplates = repo.forWorld(worldId).first()
         loaded = true
     }
 
@@ -73,7 +74,7 @@ class TemplateEditorState(
         it.copy(type = type, link = if (type == FieldType.LINK) it.link ?: LinkSpec("knows", LinkDir.OUT) else null)
     }
 
-    fun editFieldGroup(key: String, group: String) = editField(key) { it.copy(group = group.trim().ifEmpty { null }) }
+    fun editFieldGroup(key: String, group: String) = editField(key) { it.copy(group = group.ifBlank { null }) }
 
     fun editFieldOptions(key: String, text: String) =
         editField(key) { it.copy(options = text.split(',').map(String::trim).filter(String::isNotEmpty)) }
@@ -109,7 +110,7 @@ class TemplateEditorState(
         if (!dirty) return
         dirty = false
         withContext(NonCancellable) {
-            repo.update(id, name.trim().ifEmpty { "Untitled template" }, fields, bodyScaffold.ifBlank { null })
+            repo.update(id, name.trim().ifEmpty { "Untitled template" }, fields.map { it.copy(group = it.group?.trim()?.ifEmpty { null }) }, bodyScaffold.ifBlank { null })
         }
     }
 }

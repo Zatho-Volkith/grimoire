@@ -52,11 +52,15 @@ internal fun TemplateFieldRow(state: TemplateEditorState, f: TemplateField) {
             TextButton(onClick = { state.removeField(f.key) }) { Text("Remove") }
         }
         when (f.type) {
-            FieldType.TEXT -> OutlinedTextField(
-                f.options.joinToString(", "), { state.editFieldOptions(f.key, it) },
-                label = { Text("Options (comma-separated)") }, singleLine = true,
-                modifier = Modifier.width(400.dp).padding(start = 16.dp),
-            )
+            FieldType.TEXT -> {
+                // Raw text is held locally: the state re-splits on every edit, which would eat a trailing comma.
+                var raw by remember(f.key) { mutableStateOf(f.options.joinToString(", ")) }
+                OutlinedTextField(
+                    raw, { raw = it; state.editFieldOptions(f.key, it) },
+                    label = { Text("Options (comma-separated)") }, singleLine = true,
+                    modifier = Modifier.width(400.dp).padding(start = 16.dp).testTag("field-options-${f.key}"),
+                )
+            }
             FieldType.LINK -> f.link?.let { LinkControls(state, f, it) }
             FieldType.LONG -> Unit
         }

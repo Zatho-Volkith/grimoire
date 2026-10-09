@@ -31,7 +31,9 @@ class TemplateEditorStateTest {
     private val templates = TemplateRepository(db, ids, System::currentTimeMillis)
     private val scope = CoroutineScope(SupervisorJob() + Dispatchers.Default)
 
-    private fun editor(id: String) = TemplateEditorState(id, templates, scope).also { runBlocking { it.load() } }
+    private fun editor(id: String) = TemplateEditorState(id, worldOf(id), templates, scope).also { runBlocking { it.load() } }
+
+    private fun worldOf(id: String) = runBlocking { templates.template(id).first() }!!.world_id!!
 
     private fun newTemplate(): String = runBlocking {
         val w = worlds.create("Arda")
@@ -115,5 +117,29 @@ class TemplateEditorStateTest {
         assertEquals(listOf("age", "eye_colour"), stored(tid).map { it.key })
         assertEquals("Basics", stored(tid)[0].group)
         assertEquals(before, runBlocking { entities.entity(e).first() }!!.attributes)
+    }
+
+    @Test
+    fun `a built-in template's editor lists the world's templates including itself and others`() {
+        val w = runBlocking { worlds.create("Arda") }
+        dev.grimoire.template.BuiltinTemplates.seed(db, ids, System::currentTimeMillis)
+        val sheet = runBlocking { templates.byBuiltinKey("character")!! }
+        val own = runBlocking { templates.create(w, EntityType.CHARACTER, "Mine") }
+        val ed = TemplateEditorState(sheet.id, w, templates, scope).also { runBlocking { it.load() } }
+        val keys = ed.worldTemplates.mapNotNull { it.builtin_key }
+        assertEquals(true, "concept.race" in keys)
+        assertEquals(true, "character" in keys)
+        assertEquals(true, ed.worldTemplates.any { it.id == own })
+    }
+
+    @Test
+    fun `group keeps typed spaces until saved`() {
+        val id = newTemplate()
+        val ed = editor(id)
+        ed.addField("Home")
+        ed.editFieldGroup("home", "Life ")
+        assertEquals("Life ", ed.fields.single().group)
+        runBlocking { ed.flush() }
+        assertEquals("Life", stored(id).single().group)
     }
 }
