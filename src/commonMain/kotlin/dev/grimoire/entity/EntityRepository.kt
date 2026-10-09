@@ -25,6 +25,11 @@ class EntityRepository(
     fun byType(worldId: String, type: EntityType): Flow<List<Entity>> =
         q.entitiesByType(worldId, type.key).asFlow().mapToList(Dispatchers.IO)
 
+    /** Every live entity of the world, one-shot. */
+    suspend fun inWorld(worldId: String): List<Entity> = withContext(Dispatchers.IO) {
+        q.entitiesForWorld(worldId).executeAsList()
+    }
+
     fun entity(id: String): Flow<Entity?> =
         q.entityById(id).asFlow().mapToOneOrNull(Dispatchers.IO)
 

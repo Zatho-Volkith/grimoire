@@ -10,6 +10,11 @@ import dev.grimoire.db.Template
 import dev.grimoire.db.VariantsForEntity
 import dev.grimoire.db.Work
 import dev.grimoire.db.RelationshipsFor
+import dev.grimoire.db.LinksFor
+import dev.grimoire.template.LinkDir
+import dev.grimoire.template.LinkFields
+import dev.grimoire.template.TemplateField
+import kotlinx.coroutines.flow.combine
 import dev.grimoire.entity.EntityRepository
 import dev.grimoire.entity.EntityType
 import dev.grimoire.json.JsonStringMap
@@ -147,7 +152,16 @@ class EntityEditorState(
     fun editAliasesText(v: String) = edit { aliasesText = v }
     fun editSummary(v: String) = edit { summary = v }
     fun editBody(v: String) = edit { body = v }
-    fun selectTemplate(id: String?) = edit { templateId = id }
+    /** Picking a template also drops its body scaffold into Notes, but only while Notes is blank. */
+    fun selectTemplate(id: String?) {
+        edit { templateId = id }
+        if (id == null || !body.isBlank()) return
+        scope.launch {
+            val scaffold = templates.template(id).first()?.body_scaffold ?: return@launch
+            // Re-check: the user may have typed while the template row was loading.
+            if (templateId == id && body.isBlank()) editBody(scaffold)
+        }
+    }
     /** Attribute values survive template switches; only the visible fields change. */
     fun editAttribute(key: String, v: String) = edit { attributes = attributes + (key to v) }
 
@@ -204,6 +218,50 @@ class EntityEditorState(
 
     fun removeRelationship(relationshipId: String) {
         scope.launch { relationships.softDelete(relationshipId) }
+    }
+
+    // --- Link fields: relationships of a given kind/direction/target filter shown inside the template.
+
+    /** Live edges touching this entity with the other end's template, for [linksOf]. */
+    val links: Flow<List<LinksFor>> = relationships.links(id)
+
+    fun linksOf(field: TemplateField, all: List<LinksFor>): List<LinksFor> =
+        all.filter { LinkFields.matches(field, it) }
+
+    /** Template id to built-in key for the world's live templates, so [LinkFields.passes] can see keys. */
+    private fun templateKeys(): Flow<Map<String, String?>> =
+        templates.forWorld(worldId).map { list -> list.associate { it.id to it.builtin_key } }
+
+    fun linkTargets(field: TemplateField, text: String): Flow<List<Entity>> {
+        val spec = field.link ?: return flowOf(emptyList())
+        return combine(searchTargets(text), templateKeys()) { found, keys ->
+            found.filter { LinkFields.passes(spec, it.type, it.template_id, keys[it.template_id]) }
+        }
+    }
+
+    /** Creates the edge for [field] to [targetId]: OUT is this to target, IN is target to this. */
+    fun addLink(field: TemplateField, targetId: String) {
+        val spec = field.link ?: return
+        val preset = RelationshipKind.entries.firstOrNull { it.key == spec.kind && it != RelationshipKind.CUSTOM }
+        val (from, to) = if (spec.dir == LinkDir.OUT) id to targetId else targetId to id
+        scope.launch {
+            relationships.create(worldId, from, to, spec.kind, preset?.label, preset?.inverseLabel)
+        }
+    }
+
+    fun removeLink(relationshipId: String) = removeRelationship(relationshipId)
+
+    /** Id of the one live entity passing [field]'s filter whose name equals [text] (trimmed, case-insensitive). */
+    suspend fun exactMatch(field: TemplateField, text: String): String? {
+        val spec = field.link ?: return null
+        val wanted = text.trim()
+        if (wanted.isEmpty()) return null
+        val keys = templates.forWorld(worldId).first().associate { it.id to it.builtin_key }
+        val hits = repo.inWorld(worldId).filter {
+            it.id != id && it.name.trim().equals(wanted, ignoreCase = true) &&
+                LinkFields.passes(spec, it.type, it.template_id, keys[it.template_id])
+        }
+        return hits.singleOrNull()?.id
     }
 
     private fun edit(change: () -> Unit) {
