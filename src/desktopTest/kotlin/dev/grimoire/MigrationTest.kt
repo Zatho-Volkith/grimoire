@@ -48,4 +48,29 @@ class MigrationTest {
         val event = db.grimoireQueries.eventById("e1").executeAsOne()
         assertEquals("right" to null, event.side to event.parent_id)
     }
+
+    @Test
+    fun `migrating v1 templates to v4 assigns builtin keys`() {
+        val file = createTempDirectory("grimoire-migration").resolve("grimoire.db")
+        Path("src/commonMain/sqldelight/databases/1.db").copyTo(file)
+        DriverManager.getConnection("jdbc:sqlite:${file.toAbsolutePath()}").use { c ->
+            c.createStatement().use { st ->
+                st.executeUpdate("PRAGMA user_version = 1")
+                st.executeUpdate("INSERT INTO world(id, name, kind, settings, created_at, updated_at) VALUES ('w','Arda','original','{}',1,1)")
+                st.executeUpdate("INSERT INTO template(id, world_id, entity_type, name, fields, is_builtin, created_at, updated_at) VALUES ('t1',NULL,'character','People','[]',1,1,1)")
+                st.executeUpdate("INSERT INTO template(id, world_id, entity_type, name, fields, is_builtin, created_at, updated_at, deleted_at) VALUES ('t2',NULL,'location','Places','[]',1,1,1,5)")
+                st.executeUpdate("INSERT INTO template(id, world_id, entity_type, name, fields, is_builtin, created_at, updated_at) VALUES ('t3','w','character','Mine','[]',0,1,1)")
+            }
+        }
+        val driver = DriverFactory.create(file)
+        val db = GrimoireDatabase(driver)
+        val q = db.grimoireQueries
+        assertEquals("character", q.templateById("t1").executeAsOne().builtin_key)
+        assertEquals("location", q.templateById("t2").executeAsOne().builtin_key)
+        assertEquals(null, q.templateById("t3").executeAsOne().builtin_key)
+        listOf("t1", "t2", "t3").forEach { assertEquals(null, q.templateById(it).executeAsOne().body_scaffold) }
+        val v = driver.executeQuery(null, "PRAGMA user_version", { cur -> cur.next(); app.cash.sqldelight.db.QueryResult.Value(cur.getLong(0)!!) }, 0).value
+        assertEquals(GrimoireDatabase.Schema.version, v)
+        assertEquals(4L, v)
+    }
 }

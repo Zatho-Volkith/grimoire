@@ -38,7 +38,7 @@ class TemplateRepositoryTest {
         val charSheet = templates.create(w, EntityType.CHARACTER, "Character sheet")
         templates.create(w, EntityType.LOCATION, "Place sheet")
 
-        templates.update(charSheet, "Character sheet", listOf(TemplateField("age", "Age"), TemplateField("wants", "Wants")))
+        templates.update(charSheet, "Character sheet", listOf(TemplateField("age", "Age"), TemplateField("wants", "Wants")), null)
 
         val forCharacters = templates.forType(w, EntityType.CHARACTER).first()
         assertEquals(listOf("Character sheet"), forCharacters.map { it.name })
@@ -64,7 +64,7 @@ class TemplateRepositoryTest {
     fun `entity editor saves template choice and attribute values`() = runTest {
         val w = worlds.create("Arda")
         val sheet = templates.create(w, EntityType.CHARACTER, "Sheet")
-        templates.update(sheet, "Sheet", listOf(TemplateField("age", "Age")))
+        templates.update(sheet, "Sheet", listOf(TemplateField("age", "Age")), null)
         val kaede = entities.create(w, EntityType.CHARACTER, "Kaede")
 
         val editor = EntityEditorState(kaede, entities, relationships, templates, works, variants, wiki, backgroundScope)
@@ -86,5 +86,15 @@ class TemplateRepositoryTest {
         editor2.selectTemplate(null)
         editor2.flush()
         assertEquals(mapOf("age" to "27"), JsonStringMap.decode(entities.entity(kaede).first()!!.attributes))
+    }
+
+    @Test
+    fun `update stores the body scaffold`() = runTest {
+        val w = worlds.create("Arda")
+        val id = templates.create(w, EntityType.CHARACTER, "T")
+        templates.update(id, "T", emptyList(), "## History\n")
+        assertEquals("## History\n", templates.template(id).first()!!.body_scaffold)
+        templates.update(id, "T", emptyList(), null)
+        assertEquals(null, templates.template(id).first()!!.body_scaffold)
     }
 }

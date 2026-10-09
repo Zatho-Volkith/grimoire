@@ -75,4 +75,24 @@ class RelationshipRepositoryTest {
         editor.load()
         assertEquals(listOf("Kaede's Village"), editor.searchTargets("kae").first().map { it.name })
     }
+
+    @Test
+    fun `links carry direction and the other end's template key`() = runTest {
+        dev.grimoire.template.BuiltinTemplates.seed(db, ids) { 1L }
+        val w = worlds.create("Arda")
+        val charTemplate = db.grimoireQueries.templatesForType("character", w).executeAsList().single { it.is_builtin }.id
+        val a = entities.create(w, EntityType.CHARACTER, "A")
+        entities.updateContent(a, "A", emptyList(), null, null, charTemplate, emptyMap())
+        val b = entities.create(w, EntityType.CHARACTER, "B")
+        relationships.create(w, a, b, "knows", null, null)
+
+        val out = relationships.linksNow(a).single()
+        assertEquals("out", out.dir)
+        assertEquals(b, out.other_id)
+        assertEquals(null, out.other_builtin_key)
+        val inn = relationships.linksNow(b).single()
+        assertEquals("in", inn.dir)
+        assertEquals("character", inn.other_builtin_key)
+        assertEquals(1, relationships.links(a).first().size)
+    }
 }

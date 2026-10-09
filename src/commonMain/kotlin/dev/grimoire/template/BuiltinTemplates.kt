@@ -45,6 +45,7 @@ object BuiltinTemplates {
                 q.insertTemplate(
                     id = ids.next(), world_id = null, entity_type = type, name = name,
                     fields = TemplateFields.encode(fields), is_builtin = true,
+                    builtin_key = type, body_scaffold = null,
                     created_at = now, updated_at = now,
                 )
             }

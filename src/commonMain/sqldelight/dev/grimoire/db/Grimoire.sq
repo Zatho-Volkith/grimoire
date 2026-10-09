@@ -67,17 +67,23 @@ CREATE TABLE template (
     world_id      TEXT,           -- NULL = global/built-in template
     entity_type   TEXT    NOT NULL,   -- 'character' | 'location' | 'faction' | ...
     name          TEXT    NOT NULL,
-    -- JSON array of field descriptors:
-    -- [{ "key":"age", "label":"Age", "type":"text", "group":"Basics", "order":1 }, ...]
+    -- JSON array of field descriptors, in display order. Only key + label are required:
+    -- [{ "key":"age", "label":"Age", "type":"text|longtext|select|link", "group":"Basics",
+    --    "options":["a","b"], "link":{...}, "autofill":{...} }, ...]
+    -- Members at their default are omitted; unknown types decode as text.
     fields        TEXT    NOT NULL DEFAULT '[]',
     is_builtin    INTEGER AS kotlin.Boolean NOT NULL DEFAULT 0,
     created_at    INTEGER NOT NULL,
     updated_at    INTEGER NOT NULL,
     deleted_at    INTEGER,
+    -- Declared last to match the ALTER TABLE column order of 3.sqm.
+    builtin_key   TEXT,           -- stable id of a shipped template ('character', ...); NULL for user templates
+    body_scaffold TEXT,           -- markdown headings pre-filled into a new entity's body
     FOREIGN KEY (world_id) REFERENCES world(id)
 );
 
 CREATE INDEX template_world_type_idx ON template(world_id, entity_type);
+CREATE UNIQUE INDEX template_builtin_key_idx ON template(builtin_key) WHERE builtin_key IS NOT NULL;
 
 
 -- ---------------------------------------------------------------------------
@@ -466,6 +472,25 @@ FROM relationship r
 JOIN entity e ON e.id = r.from_entity
 WHERE r.to_entity = ? AND r.deleted_at IS NULL AND e.deleted_at IS NULL;
 
+-- Like relationshipsFor, but carries the other end's template so link fields can match on it.
+-- The template is LEFT JOINed and not filtered: it may be soft-deleted or absent.
+linksFor:
+SELECT r.id, r.kind, 'out' AS dir,
+       e.id AS other_id, e.name AS other_name, e.type AS other_type,
+       e.template_id AS other_template_id, t.builtin_key AS other_builtin_key
+FROM relationship r
+JOIN entity e ON e.id = r.to_entity
+LEFT JOIN template t ON t.id = e.template_id
+WHERE r.from_entity = ? AND r.deleted_at IS NULL AND e.deleted_at IS NULL
+UNION ALL
+SELECT r.id, r.kind, 'in',
+       e.id, e.name, e.type,
+       e.template_id, t.builtin_key
+FROM relationship r
+JOIN entity e ON e.id = r.from_entity
+LEFT JOIN template t ON t.id = e.template_id
+WHERE r.to_entity = ? AND r.deleted_at IS NULL AND e.deleted_at IS NULL;
+
 
 -- Resolve an entity as it exists inside a specific work.
 -- Merge entity.attributes with variant.attribute_patch in Kotlin — SQLite's
@@ -607,11 +632,19 @@ templateById:
 SELECT * FROM template WHERE id = ?;
 
 insertTemplate:
-INSERT INTO template (id, world_id, entity_type, name, fields, is_builtin, created_at, updated_at)
-VALUES (?, ?, ?, ?, ?, ?, ?, ?);
+INSERT INTO template (id, world_id, entity_type, name, fields, is_builtin, builtin_key, body_scaffold, created_at, updated_at)
+VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?);
 
 updateTemplateContent:
-UPDATE template SET name = ?, fields = ?, updated_at = ? WHERE id = ?;
+UPDATE template SET name = ?, fields = ?, body_scaffold = ?, updated_at = ? WHERE id = ?;
+
+-- Tombstones included, so a deleted built-in is never re-seeded.
+templateByBuiltinKey:
+SELECT * FROM template WHERE builtin_key = ?;
+
+-- Refreshes a shipped template's content; timestamps untouched.
+upgradeBuiltinTemplate:
+UPDATE template SET fields = ?, body_scaffold = ? WHERE id = ?;
 
 softDeleteTemplate:
 UPDATE template SET deleted_at = ?, updated_at = ? WHERE id = ?;

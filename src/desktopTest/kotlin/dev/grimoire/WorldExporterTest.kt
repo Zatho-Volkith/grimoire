@@ -38,7 +38,7 @@ class WorldExporterTest {
     fun `entities export with frontmatter, wikilinked relationships, and unique names`() = runTest {
         val w = worlds.create("Arda")
         val sheet = templates.create(w, EntityType.CHARACTER, "Sheet")
-        templates.update(sheet, "Sheet", listOf(TemplateField("age", "Age")))
+        templates.update(sheet, "Sheet", listOf(TemplateField("age", "Age")), null)
 
         val kaede = entities.create(w, EntityType.CHARACTER, "Kaede")
         entities.updateContent(

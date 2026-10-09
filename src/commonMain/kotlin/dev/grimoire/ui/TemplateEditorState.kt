@@ -71,7 +71,7 @@ class TemplateEditorState(
         if (!dirty) return
         dirty = false
         withContext(NonCancellable) {
-            repo.update(id, name.trim().ifEmpty { "Untitled template" }, fields)
+            repo.update(id, name.trim().ifEmpty { "Untitled template" }, fields, bodyScaffold = null)
         }
     }
 }

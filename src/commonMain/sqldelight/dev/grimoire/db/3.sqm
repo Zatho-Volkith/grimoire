@@ -1,0 +1,7 @@
+-- v3 -> v4: templates get a stable builtin_key (so shipped templates can be upgraded
+-- in place even if renamed) and a body_scaffold (markdown pre-filled into new entities).
+
+ALTER TABLE template ADD COLUMN builtin_key TEXT;
+ALTER TABLE template ADD COLUMN body_scaffold TEXT;
+CREATE UNIQUE INDEX template_builtin_key_idx ON template(builtin_key) WHERE builtin_key IS NOT NULL;
+UPDATE template SET builtin_key = entity_type WHERE is_builtin = 1;

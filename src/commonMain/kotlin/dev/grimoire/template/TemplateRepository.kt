@@ -35,13 +35,23 @@ class TemplateRepository(
         val id = ids.next()
         q.insertTemplate(
             id = id, world_id = worldId, entity_type = type.key, name = name,
-            fields = "[]", is_builtin = false, created_at = now, updated_at = now,
+            fields = "[]", is_builtin = false,
+            builtin_key = null, body_scaffold = null, created_at = now, updated_at = now,
         )
         id
     }
 
-    suspend fun update(id: String, name: String, fields: List<TemplateField>) = withContext(Dispatchers.IO) {
-        q.updateTemplateContent(name = name, fields = TemplateFields.encode(fields), updated_at = clock(), id = id)
+    suspend fun update(id: String, name: String, fields: List<TemplateField>, bodyScaffold: String?) =
+        withContext(Dispatchers.IO) {
+            q.updateTemplateContent(
+                name = name, fields = TemplateFields.encode(fields), body_scaffold = bodyScaffold,
+                updated_at = clock(), id = id,
+            )
+        }
+
+    /** The live built-in template shipped under [key], if any. */
+    suspend fun byBuiltinKey(key: String): Template? = withContext(Dispatchers.IO) {
+        q.templateByBuiltinKey(key).executeAsOneOrNull()?.takeIf { it.deleted_at == null }
     }
 
     suspend fun softDelete(id: String) = withContext(Dispatchers.IO) {

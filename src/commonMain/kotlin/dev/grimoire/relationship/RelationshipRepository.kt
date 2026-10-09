@@ -3,6 +3,7 @@ package dev.grimoire.relationship
 import app.cash.sqldelight.coroutines.asFlow
 import app.cash.sqldelight.coroutines.mapToList
 import dev.grimoire.db.GrimoireDatabase
+import dev.grimoire.db.LinksFor
 import dev.grimoire.db.RelationshipsFor
 import dev.grimoire.id.IdGenerator
 import kotlinx.coroutines.Dispatchers
@@ -19,6 +20,14 @@ class RelationshipRepository(
     /** Every live edge touching [entityId], outgoing and incoming, with the label as seen from that side. */
     fun forEntity(entityId: String): Flow<List<RelationshipsFor>> =
         q.relationshipsFor(entityId, entityId).asFlow().mapToList(Dispatchers.IO)
+
+    /** Like [forEntity] but with the other end's template, for link fields. */
+    fun links(entityId: String): Flow<List<LinksFor>> =
+        q.linksFor(entityId, entityId).asFlow().mapToList(Dispatchers.IO)
+
+    suspend fun linksNow(entityId: String): List<LinksFor> = withContext(Dispatchers.IO) {
+        q.linksFor(entityId, entityId).executeAsList()
+    }
 
     suspend fun create(
         worldId: String, fromEntity: String, toEntity: String,
