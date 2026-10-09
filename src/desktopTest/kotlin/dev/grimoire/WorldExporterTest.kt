@@ -7,6 +7,7 @@ import dev.grimoire.export.VaultNames
 import dev.grimoire.export.WorldExporter
 import dev.grimoire.id.IdGenerator
 import dev.grimoire.relationship.RelationshipRepository
+import dev.grimoire.template.BuiltinTemplates
 import dev.grimoire.template.TemplateField
 import dev.grimoire.template.TemplateRepository
 import dev.grimoire.timeline.TimelineRepository
@@ -120,5 +121,33 @@ class WorldExporterTest {
         val story = files.content("Timeline - Story order.md")
         assertTrue(story.startsWith("# Timeline — Story order"))
         assertTrue("## Chapter one happens" in story)
+    }
+
+    @Test
+    fun `link fields export as frontmatter wikilinks`() = runTest {
+        BuiltinTemplates.seed(db, ids) { 1L }
+        val w = worlds.create("Arda")
+        val city = templates.byBuiltinKey("location.city")!!.id
+        val nation = templates.byBuiltinKey("location.nation")!!.id
+        val eldoria = entities.create(w, EntityType.LOCATION, "Eldoria")
+        entities.updateContent(eldoria, "Eldoria", emptyList(), null, null, nation, emptyMap())
+        val silverport = entities.create(w, EntityType.LOCATION, "Silverport")
+        entities.updateContent(silverport, "Silverport", emptyList(), null, null, city, mapOf("located_in" to "the old quarter"))
+        relationships.create(w, silverport, eldoria, "located_in", "located in", "contains")
+
+        val files = exporter.export(w)
+        val text = files.content("Locations", "Silverport.md")
+        assertTrue("Located in:\n  - \"[[Eldoria]]\"\n  - \"the old quarter\"\n" in text, text)
+        assertTrue("- located in [[Eldoria]]" in text)
+        assertEquals(1, Regex("Located in").findAll(text).count())
+        assertTrue("Contains:" !in text)
+
+        // links only, no text
+        entities.updateContent(silverport, "Silverport", emptyList(), null, null, city, emptyMap())
+        val linksOnly = exporter.export(w).content("Locations", "Silverport.md")
+        assertTrue("Located in:\n  - \"[[Eldoria]]\"\n---" in linksOnly, linksOnly)
+
+        // Eldoria sees the inverse only through its own (IN) field, if any; no stray out-field
+        assertTrue("Located in:" !in files.content("Locations", "Eldoria.md"))
     }
 }

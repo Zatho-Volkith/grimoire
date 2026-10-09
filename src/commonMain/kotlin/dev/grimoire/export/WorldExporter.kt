@@ -9,6 +9,9 @@ import dev.grimoire.db.Work
 import dev.grimoire.entity.EntityType
 import dev.grimoire.json.JsonStringMap
 import dev.grimoire.json.JsonStrings
+import dev.grimoire.template.FieldType
+import dev.grimoire.template.LinkDir
+import dev.grimoire.template.LinkFields
 import dev.grimoire.template.TemplateField
 import dev.grimoire.template.TemplateFields
 import dev.grimoire.timeline.TimelineRepository
@@ -43,8 +46,10 @@ class WorldExporter(private val db: GrimoireDatabase) {
         val participants = q.participantsForWorld(worldId).executeAsList().groupBy { it.event_id }
         val works = q.worksForWorld(worldId).executeAsList()
         val chaptersByWork = q.chaptersForWorld(worldId).executeAsList().groupBy { it.work_id }
-        val templateFields = q.templatesForWorld(worldId).executeAsList()
-            .associate { it.id to TemplateFields.decode(it.fields) }
+        val templateRows = q.templatesForWorld(worldId).executeAsList()
+        val templateFields = templateRows.associate { it.id to TemplateFields.decode(it.fields) }
+        val builtinKeys = templateRows.associate { it.id to it.builtin_key }
+        val entitiesById = entities.associateBy { it.id }
 
         val usedNames = mutableSetOf<String>()
         val names = entities.associate { it.id to VaultNames.uniquify(VaultNames.sanitize(it.name), usedNames) }
@@ -55,7 +60,7 @@ class WorldExporter(private val db: GrimoireDatabase) {
             entities.forEach { e ->
                 val folder = EntityType.fromKey(e.type).plural
                 val fields = e.template_id?.let { templateFields[it] }.orEmpty()
-                add(ExportFile(listOf(folder, "${names.getValue(e.id)}.md"), entityFile(e, fields, relationships, names)))
+                add(ExportFile(listOf(folder, "${names.getValue(e.id)}.md"), entityFile(e, fields, relationships, names, entitiesById, builtinKeys)))
             }
 
             val usedWorkFolders = mutableSetOf<String>()
@@ -91,7 +96,10 @@ class WorldExporter(private val db: GrimoireDatabase) {
         fields: List<TemplateField>,
         relationships: List<RelationshipsForWorld>,
         names: Map<String, String>,
+        entitiesById: Map<String, Entity>,
+        builtinKeys: Map<String, String?>,
     ): String = buildString {
+        val mine = relationships.filter { it.from_entity == e.id || it.to_entity == e.id }
         appendLine("---")
         appendLine("type: ${EntityType.fromKey(e.type).label}")
         val aliases = JsonStrings.decode(e.aliases)
@@ -100,8 +108,29 @@ class WorldExporter(private val db: GrimoireDatabase) {
             aliases.forEach { appendLine("  - ${yamlValue(it)}") }
         }
         val attributes = JsonStringMap.decode(e.attributes)
-        val labeled = fields.filter { it.key in attributes }
-        labeled.forEach { appendLine("${yamlKey(it.label)}: ${yamlValue(attributes.getValue(it.key))}") }
+        // Link fields with matching relationships list [[wikilinks]] (then any free text); the rest are plain.
+        val linked = fields.mapNotNull { f ->
+            val spec = f.link?.takeIf { f.type == FieldType.LINK } ?: return@mapNotNull null
+            val targets = mine.filter { r ->
+                val outgoing = r.from_entity == e.id
+                val otherId = if (outgoing) r.to_entity else r.from_entity
+                val other = entitiesById[otherId] ?: return@filter false
+                r.kind == spec.kind && outgoing == (spec.dir == LinkDir.OUT) &&
+                    LinkFields.passes(spec, other.type, other.template_id, other.template_id?.let { builtinKeys[it] })
+            }.map { names.getValue(if (it.from_entity == e.id) it.to_entity else it.from_entity) }.distinct()
+            if (targets.isEmpty()) null else f to targets
+        }.toMap()
+        val labeled = fields.filter { it.key in attributes || it in linked }
+        labeled.forEach { f ->
+            val targets = linked[f]
+            if (targets == null) {
+                appendLine("${yamlKey(f.label)}: ${yamlValue(attributes.getValue(f.key))}")
+            } else {
+                appendLine("${yamlKey(f.label)}:")
+                targets.forEach { appendLine("  - ${yamlValue("[[$it]]")}") }
+                attributes[f.key]?.let { appendLine("  - ${yamlValue(it)}") }
+            }
+        }
         (attributes.keys - labeled.map { it.key }.toSet()).sorted()
             .forEach { appendLine("${yamlKey(it)}: ${yamlValue(attributes.getValue(it))}") }
         appendLine("---")
@@ -109,7 +138,6 @@ class WorldExporter(private val db: GrimoireDatabase) {
         e.summary?.let { appendLine(); appendLine(it) }
         e.body?.let { appendLine(); appendLine(it) }
 
-        val mine = relationships.filter { it.from_entity == e.id || it.to_entity == e.id }
         if (mine.isNotEmpty()) {
             appendLine()
             appendLine("## Relationships")
