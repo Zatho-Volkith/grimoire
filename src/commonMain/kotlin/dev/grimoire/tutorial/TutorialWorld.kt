@@ -31,8 +31,7 @@ object TutorialWorld {
         val w = worlds.create("Grimoire Tutorial")
 
         // --- cast of examples -------------------------------------------------
-        val characterSheet = templates.forType(w, EntityType.CHARACTER).first()
-            .firstOrNull { it.is_builtin }?.id
+        val characterSheet = templates.byBuiltinKey("character")?.id
 
         val mira = entities.create(w, EntityType.CHARACTER, "Mira Vale")
         entities.updateContent(

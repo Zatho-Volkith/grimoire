@@ -17,5 +17,9 @@ enum class RelationshipKind(val key: String, val label: String, val inverseLabel
     RIVAL_OF("rival_of", "rival of", "rival of"),
     ENEMY_OF("enemy_of", "enemy of", "enemy of"),
     KNOWS("knows", "knows", "known by"),
+    FOLLOWS("follows", "follows", "followed by"),
+    WORSHIPS("worships", "worships", "worshipped by"),
+    SPEAKS("speaks", "speaks", "spoken by"),
+    HAILS_FROM("hails_from", "from", "home of"),
     CUSTOM("custom", "", "");
 }
