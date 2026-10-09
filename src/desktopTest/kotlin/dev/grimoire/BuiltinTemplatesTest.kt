@@ -142,4 +142,21 @@ class BuiltinTemplatesTest {
         BuiltinTemplates.seed(db, ids) { 1L }
         assertEquals(2, templates.forType(w, EntityType.LOCATION).first().count { it.name == "Region" })
     }
+
+    @Test
+    fun `original built-ins keep their frozen field keys`() {
+        val frozen = mapOf(
+            "character" to listOf("age", "pronouns", "occupation", "appearance", "personality", "wants", "fears"),
+            "location" to listOf("kind", "located_in", "atmosphere", "notable_features"),
+            "faction" to listOf("purpose", "leader", "headquarters", "allies", "rivals"),
+            "item" to listOf("kind", "owner", "origin", "properties"),
+            "concept" to listOf("domain", "rules_and_limits", "source_material"),
+            "system" to listOf("how_it_works", "costs_and_limits", "practitioners"),
+        )
+        frozen.forEach { (key, keys) ->
+            val def = BuiltinTemplates.all.single { it.key == key }
+            val present = def.fields.map { it.key }.toSet()
+            assertTrue(present.containsAll(keys), "$key missing ${keys - present}")
+        }
+    }
 }

@@ -245,8 +245,9 @@ class EntityEditorState(
 
     fun linkTargets(field: TemplateField, text: String): Flow<List<Entity>> {
         val spec = field.link ?: return flowOf(emptyList())
-        return combine(searchTargets(text), templateKeys()) { found, keys ->
-            found.filter { LinkFields.passes(spec, it.type, it.template_id, keys[it.template_id]) }
+        return combine(searchTargets(text), templateKeys(), links) { found, keys, current ->
+            val linked = linksOf(field, current).map { it.other_id }.toSet()
+            found.filter { it.id !in linked && LinkFields.passes(spec, it.type, it.template_id, keys[it.template_id]) }
         }
     }
 
@@ -258,6 +259,7 @@ class EntityEditorState(
         if (field.link == null) return
         autofilledFrom = autofilledFrom - field.key
         scope.launch {
+            if (linksOf(field, relationships.linksNow(id)).any { it.other_id == targetId }) return@launch
             writeLink(field, targetId)
             autofill(field.key)
         }

@@ -110,6 +110,22 @@ class EntityEditorStateTest {
     }
 
     @Test
+    fun `already linked targets are not offered and re-adding is a no-op`() {
+        val kaede = entity(EntityType.CHARACTER, "Kaede", characterSheet)
+        val elf = entity(EntityType.CONCEPT, "Elf", raceTemplate)
+        val e = editor(kaede)
+        val race = field(e, characterSheet, "race")
+        assertEquals(listOf("Elf"), run { e.linkTargets(race, "Elf").first() }.map { it.name })
+        e.addLink(race, elf)
+        await { run { e.links.first() }.size == 1 }
+        assertEquals(emptyList(), run { e.linkTargets(race, "Elf").first() }.map { it.name })
+        e.addLink(race, elf)
+        Thread.sleep(300)
+        val rows = run { session.relationships.forEntity(kaede).first() }
+        assertEquals(1, rows.count { it.kind == "member_of" })
+    }
+
+    @Test
     fun `soft-deleted target disappears from chips`() {
         val kaede = entity(EntityType.CHARACTER, "Kaede", characterSheet)
         val elf = entity(EntityType.CONCEPT, "Elf", raceTemplate)

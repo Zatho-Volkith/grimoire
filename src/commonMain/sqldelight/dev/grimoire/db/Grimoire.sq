@@ -68,8 +68,10 @@ CREATE TABLE template (
     entity_type   TEXT    NOT NULL,   -- 'character' | 'location' | 'faction' | ...
     name          TEXT    NOT NULL,
     -- JSON array of field descriptors, in display order. Only key + label are required:
-    -- [{ "key":"age", "label":"Age", "type":"text|longtext|select|link", "group":"Basics",
-    --    "options":["a","b"], "link":{...}, "autofill":{...} }, ...]
+    -- [{ "key":"age", "label":"Age", "type":"text|long|link", "group":"Basics",
+    --    "options":["a","b"],
+    --    "link":{"kind":"member_of","dir":"out|in","targetType":"concept","targetTemplate":"race"},
+    --    "autofill":[{"via":"race","from":"religion"}] }, ...]
     -- Members at their default are omitted; unknown types decode as text.
     fields        TEXT    NOT NULL DEFAULT '[]',
     is_builtin    INTEGER AS kotlin.Boolean NOT NULL DEFAULT 0,
@@ -834,10 +836,6 @@ UPDATE entity SET source_id = ?, updated_at = ? WHERE id = ?;
 countSyncQueue:
 SELECT COUNT(*) FROM sync_queue;
 
-
--- Includes tombstones on purpose: a user who deleted the built-ins shouldn't get them back.
-countBuiltinTemplates:
-SELECT COUNT(*) FROM template WHERE is_builtin = 1;
 
 calendarsForWorld:
 SELECT DISTINCT calendar_key FROM timeline_event

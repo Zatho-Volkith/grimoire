@@ -50,6 +50,23 @@ class MigrationTest {
     }
 
     @Test
+    fun `duplicate v1 built-ins migrate and only one gets the key`() {
+        val file = createTempDirectory("grimoire-migration").resolve("grimoire.db")
+        Path("src/commonMain/sqldelight/databases/1.db").copyTo(file)
+        DriverManager.getConnection("jdbc:sqlite:${file.toAbsolutePath()}").use { c ->
+            c.createStatement().use { st ->
+                st.executeUpdate("PRAGMA user_version = 1")
+                st.executeUpdate("INSERT INTO template(id, world_id, entity_type, name, fields, is_builtin, created_at, updated_at) VALUES ('a',NULL,'character','One','[]',1,1,1)")
+                st.executeUpdate("INSERT INTO template(id, world_id, entity_type, name, fields, is_builtin, created_at, updated_at) VALUES ('b',NULL,'character','Two','[]',1,1,1)")
+            }
+        }
+        val q = GrimoireDatabase(DriverFactory.create(file)).grimoireQueries
+        val keys = listOf("a", "b").map { q.templateById(it).executeAsOne().builtin_key }
+        assertEquals(listOf("character"), keys.filterNotNull())
+        assertEquals("character", keys[0])
+    }
+
+    @Test
     fun `migrating v1 templates to v4 assigns builtin keys`() {
         val file = createTempDirectory("grimoire-migration").resolve("grimoire.db")
         Path("src/commonMain/sqldelight/databases/1.db").copyTo(file)
