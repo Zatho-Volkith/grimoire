@@ -58,6 +58,7 @@ fun main() {
 
     SyncService(db, ids, clock, wiki, status = syncStatus).start(scope)
     val fonts = DesktopFonts.load()
+    val icons = DesktopIcons()
 
     application {
         Window(
@@ -69,7 +70,7 @@ fun main() {
             state = rememberWindowState(size = DpSize(1200.dp, 800.dp)),
             onPreviewKeyEvent = { handleShortcut(session, it) },
         ) {
-            App(session, fonts)
+            App(session, fonts, icons)
         }
     }
 }
