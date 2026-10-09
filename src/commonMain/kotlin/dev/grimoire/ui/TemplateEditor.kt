@@ -22,6 +22,7 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.unit.dp
 
 /** One template: name plus its ordered fields. Values live on entities; this edits the shape. */
@@ -51,18 +52,20 @@ fun TemplateEditor(state: TemplateEditorState, onDelete: () -> Unit) {
 
         Text("Fields", style = MaterialTheme.typography.titleMedium)
         if (state.fields.isEmpty()) Text("No fields yet — add one below.", style = MaterialTheme.typography.bodySmall)
-        state.fields.forEach { f ->
-            Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                OutlinedTextField(
-                    f.label, { state.renameField(f.key, it) },
-                    label = { Text("Field label") }, singleLine = true,
-                    modifier = Modifier.width(320.dp),
-                )
-                TextButton(onClick = { state.removeField(f.key) }) { Text("Remove") }
-            }
-        }
+        state.fields.forEach { f -> TemplateFieldRow(state, f) }
         HorizontalDivider(Modifier.padding(vertical = 4.dp))
         AddFieldForm(state)
+        HorizontalDivider(Modifier.padding(vertical = 4.dp))
+        Text("Body scaffold", style = MaterialTheme.typography.titleMedium)
+        Text(
+            "Written to a new entity's Notes when this template is picked (only if Notes is blank).",
+            style = MaterialTheme.typography.bodySmall,
+        )
+        OutlinedTextField(
+            state.bodyScaffold, state::editBodyScaffold,
+            label = { Text("Body scaffold") }, minLines = 4,
+            modifier = Modifier.fillMaxWidth().testTag("body-scaffold"),
+        )
     }
 }
 

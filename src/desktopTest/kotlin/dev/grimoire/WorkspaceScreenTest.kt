@@ -223,6 +223,29 @@ class WorkspaceScreenTest {
     }
 
     @Test
+    fun `changing a field type in the template editor`() {
+        val w = runBlocking { worlds.create("Arda") }
+        session.openWorld(w)
+        rule.setContent { App(session) }
+
+        rule.onNodeWithText("Templates").performClick()
+        rule.onNodeWithText("New Template").performClick()
+        rule.waitUntil(5_000) { session.workspace?.templateEditor?.loaded == true }
+        rule.onNode(hasSetTextAction() and hasText("New field")).performTextInput("Backstory")
+        rule.onNodeWithText("Add field").performClick()
+        rule.waitUntilAtLeastOneExists(hasTestTag("field-type-backstory"), 5_000)
+
+        rule.onNodeWithTag("field-type-backstory").performClick()
+        rule.waitUntilAtLeastOneExists(hasText("Long") and hasClickAction(), 5_000)
+        rule.onNode(hasText("Long") and hasClickAction()).performClick()
+        runBlocking { session.flush() }
+
+        val id = session.workspace!!.templateEditor!!.id
+        val stored = dev.grimoire.template.TemplateFields.decode(runBlocking { templates.template(id).first() }!!.fields)
+        assertEquals(dev.grimoire.template.FieldType.LONG, stored.single().type)
+    }
+
+    @Test
     fun `picking a race through the field autofills religion`() {
         dev.grimoire.template.BuiltinTemplates.seed(db, ids, System::currentTimeMillis)
         val w = runBlocking { worlds.create("Arda") }
