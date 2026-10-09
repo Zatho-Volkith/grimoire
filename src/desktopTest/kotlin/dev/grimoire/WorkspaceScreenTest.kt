@@ -223,6 +223,37 @@ class WorkspaceScreenTest {
     }
 
     @Test
+    fun `picking a race through the field autofills religion`() {
+        dev.grimoire.template.BuiltinTemplates.seed(db, ids, System::currentTimeMillis)
+        val w = runBlocking { worlds.create("Arda") }
+        val sun = runBlocking { entities.create(w, EntityType.CONCEPT, "Sunworshippers") }
+        val elf = runBlocking { entities.create(w, EntityType.CONCEPT, "Elf") }
+        val kaede = runBlocking { entities.create(w, EntityType.CHARACTER, "Kaede") }
+        runBlocking {
+            val religion = templates.byBuiltinKey("concept.religion")!!.id
+            val race = templates.byBuiltinKey("concept.race")!!.id
+            val sheet = templates.byBuiltinKey("character")!!.id
+            entities.updateContent(sun, "Sunworshippers", emptyList(), null, null, religion, emptyMap())
+            entities.updateContent(elf, "Elf", emptyList(), null, null, race, emptyMap())
+            entities.updateContent(kaede, "Kaede", emptyList(), null, null, sheet, emptyMap())
+            relationships.create(w, elf, sun, "follows", "follows", "followed by")
+        }
+        session.openWorld(w)
+        rule.setContent { App(session) }
+        session.workspace!!.open(kaede)
+        rule.waitUntil(5_000) { session.workspace?.editor?.loaded == true }
+
+        rule.waitUntilAtLeastOneExists(hasTestTag("field-group") and hasText("Ties"), 5_000)
+        rule.onNodeWithTag("link-add-race").performScrollTo().performClick()
+        rule.onNode(hasTestTag("link-search")).performTextInput("Elf")
+        rule.waitUntilAtLeastOneExists(hasText("Elf") and hasClickAction() and !hasSetTextAction(), 5_000)
+        rule.onNode(hasText("Elf") and hasClickAction() and !hasSetTextAction()).performClick()
+
+        rule.waitUntilAtLeastOneExists(hasTestTag("link-chip") and hasText("Sunworshippers"), 5_000)
+        rule.waitUntilAtLeastOneExists(hasTestTag("autofill-note") and hasText("from Elf"), 5_000)
+    }
+
+    @Test
     fun `export button reports the destination from the sink`() {
         val w = runBlocking { worlds.create("Arda") }
         session.openWorld(w)

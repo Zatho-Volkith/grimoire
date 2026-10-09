@@ -83,7 +83,7 @@ fun EntityEditor(state: EntityEditorState, onDelete: () -> Unit, onOpenEntity: (
             label = { Text("Summary") }, minLines = 2,
             modifier = Modifier.fillMaxWidth(),
         )
-        AttributesPanel(state)
+        AttributesPanel(state, onOpenEntity)
         OutlinedTextField(
             state.body, state::editBody,
             label = { Text("Notes") }, minLines = 12,
@@ -98,7 +98,8 @@ fun EntityEditor(state: EntityEditorState, onDelete: () -> Unit, onOpenEntity: (
 /** Template picker plus the attribute fields the chosen template declares. */
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
-private fun AttributesPanel(state: EntityEditorState) {
+private fun AttributesPanel(state: EntityEditorState, onOpenEntity: (String) -> Unit) {
+    val links by state.links.collectAsState(initial = emptyList())
     val options by state.templateOptions.collectAsState(initial = emptyList())
     val selected = options.firstOrNull { it.id == state.templateId }
     var open by remember { mutableStateOf(false) }
@@ -121,12 +122,14 @@ private fun AttributesPanel(state: EntityEditorState) {
         }
         selected?.let { t ->
             val fields = remember(t.fields) { TemplateFields.decode(t.fields) }
-            fields.forEach { f ->
-                OutlinedTextField(
-                    state.attributes[f.key].orEmpty(), { state.editAttribute(f.key, it) },
-                    label = { Text(f.label) }, singleLine = true,
-                    modifier = Modifier.fillMaxWidth(),
+            val ungrouped = fields.filter { it.group == null }
+            ungrouped.forEach { FieldEditor(state, it, links, onOpenEntity) }
+            fields.mapNotNull { it.group }.distinct().forEach { g ->
+                Text(
+                    g, style = MaterialTheme.typography.labelLarge,
+                    modifier = Modifier.padding(top = 4.dp).testTag("field-group"),
                 )
+                fields.filter { it.group == g }.forEach { FieldEditor(state, it, links, onOpenEntity) }
             }
         }
     }
