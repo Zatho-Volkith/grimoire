@@ -130,6 +130,34 @@ class AutofillTest {
             "x" to AutofillSource("x", "X", emptyMap(), loop, listOf(toY)),
             "y" to AutofillSource("y", "Y", emptyMap(), loop, listOf(toX)),
         )
-        plan(sources, links = listOf(toX), fields = loop, trigger = "a")
+        // a = X fills b with X's b (= Y); b's dependant a is already filled, so the walk stops.
+        assertEquals(listOf(AddLink("b", "y", "X")), plan(sources, links = listOf(toX), fields = loop, trigger = "a"))
+    }
+
+    @Test
+    fun `link field without links falls back to its text`() {
+        val elf = AutofillSource("elf", "Elf", mapOf("languages" to "Old Tongue"), race, emptyList())
+        assertEquals(listOf(SetText("languages", "Old Tongue", "Elf")), plan(mapOf("elf" to elf)))
+    }
+
+    @Test
+    fun `link source into text field joins names`() {
+        val toQuenya = edge("speaks", "out", "quenya", "Quenya", "concept", "concept.language")
+        val elf = AutofillSource("elf", "Elf", emptyMap(), race, listOf(toElvish, toQuenya))
+        val textLangs = character.map {
+            if (it.key == "languages") TemplateField("languages", "Languages", autofill = it.autofill) else it
+        }
+        assertEquals(listOf(SetText("languages", "Elvish, Quenya", "Elf")), plan(mapOf("elf" to elf), fields = textLangs))
+    }
+
+    @Test
+    fun `target filter rejects a link`() {
+        // Elf's (unfiltered) languages field reaches an entity that isn't a Language-template concept.
+        val looseRace = race.map {
+            if (it.key == "languages") it.copy(link = LinkSpec("speaks", LinkDir.OUT)) else it
+        }
+        val toCommon = edge("speaks", "out", "common", "Common", "concept")
+        val elf = AutofillSource("elf", "Elf", emptyMap(), looseRace, listOf(toCommon, toElvish))
+        assertEquals(listOf(AddLink("languages", "elvish", "Elf")), plan(mapOf("elf" to elf)))
     }
 }

@@ -40,6 +40,8 @@ import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.flow.flowOf
 import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.sync.Mutex
+import kotlinx.coroutines.sync.withLock
 import kotlinx.coroutines.withContext
 
 /**
@@ -272,26 +274,32 @@ class EntityEditorState(
     private suspend fun fieldsOf(templateId: String?): List<TemplateField> =
         templateId?.let { tid -> templates.template(tid).first()?.let { TemplateFields.decode(it.fields) } }.orEmpty()
 
-    private suspend fun autofill(trigger: String) {
+    /** One autofill pass at a time, so two quick [addLink]s can't both fill the same empty field. */
+    private val autofillLock = Mutex()
+
+    private suspend fun autofill(trigger: String) = autofillLock.withLock {
         val fields = fieldsOf(templateId)
-        if (fields.none { f -> f.autofill.any { it.via == trigger } }) return
+        if (fields.none { f -> f.autofill.any { it.via == trigger } }) return@withLock
         val actions = Autofill.plan(id, fields, attributes, relationships.linksNow(id), trigger) { eid ->
             repo.entity(eid).first()?.let { e ->
                 AutofillSource(e.id, e.name, JsonStringMap.decode(e.attributes), fieldsOf(e.template_id), relationships.linksNow(eid))
             }
         }
+        if (actions.isEmpty()) return@withLock
         val byKey = fields.associateBy { it.key }
+        // Taken before this pass writes anything: a field linked here already was filled by someone else.
+        val before = relationships.linksNow(id)
+        val recorded = mutableSetOf<String>()
         for (a in actions) {
-            // The user may have typed into the field while the plan was being worked out: never overwrite.
-            if (!attributes[a.fieldKey].isNullOrBlank()) continue
+            val f = byKey[a.fieldKey] ?: continue
+            // The user may have typed or linked while the plan was being worked out: never overwrite.
+            if (!attributes[a.fieldKey].isNullOrBlank() || before.any { LinkFields.matches(f, it) }) continue
             when (a) {
                 is AutofillAction.SetText -> edit { attributes = attributes + (a.fieldKey to a.value) }
-                is AutofillAction.AddLink -> {
-                    val f = byKey[a.fieldKey] ?: continue
-                    if (runCatching { writeLink(f, a.targetId) }.isFailure) continue
-                }
+                is AutofillAction.AddLink -> writeLink(f, a.targetId)
             }
-            autofilledFrom = autofilledFrom + (a.fieldKey to a.fromName)
+            // Provenance is the first source that contributed to the field.
+            if (recorded.add(a.fieldKey)) autofilledFrom = autofilledFrom + (a.fieldKey to a.fromName)
         }
     }
 

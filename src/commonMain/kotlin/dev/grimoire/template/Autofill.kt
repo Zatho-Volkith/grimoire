@@ -72,15 +72,18 @@ object Autofill {
         for (t in linked[rule.via].orEmpty()) {
             val src = source(t.id) ?: continue
             val from = src.fields.firstOrNull { it.key == rule.from } ?: continue
-            if (from.type == FieldType.LINK && from.link != null) {
-                val values = src.links.filter { LinkFields.matches(from, it) }.map { it.target() }
+            val values = if (from.type == FieldType.LINK && from.link != null) {
+                src.links.filter { LinkFields.matches(from, it) }.map { it.target() }
+            } else emptyList()
+            // A link field with no links still carries text (spec §1), so it falls back like a text field.
+            if (values.isNotEmpty()) {
                 if (f.type == FieldType.LINK && f.link != null) {
                     for (v in values) {
                         if (v.id == selfId || !seen.add(v.id)) continue
                         if (!LinkFields.passes(f.link, v.type, v.templateId, v.builtinKey)) continue
                         adds += AutofillAction.AddLink(f.key, v.id, src.name) to v
                     }
-                } else if (values.isNotEmpty()) {
+                } else {
                     parts += values.map { it.name }
                     textFrom = textFrom ?: src.name
                 }
