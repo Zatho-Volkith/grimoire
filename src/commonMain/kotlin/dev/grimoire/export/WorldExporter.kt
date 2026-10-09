@@ -118,11 +118,11 @@ class WorldExporter(private val db: GrimoireDatabase) {
                 r.kind == spec.kind && outgoing == (spec.dir == LinkDir.OUT) &&
                     LinkFields.passes(spec, other.type, other.template_id, other.template_id?.let { builtinKeys[it] })
             }.map { names.getValue(if (it.from_entity == e.id) it.to_entity else it.from_entity) }.distinct()
-            if (targets.isEmpty()) null else f to targets
+            if (targets.isEmpty()) null else f.key to targets
         }.toMap()
-        val labeled = fields.filter { it.key in attributes || it in linked }
+        val labeled = fields.filter { it.key in attributes || it.key in linked }
         labeled.forEach { f ->
-            val targets = linked[f]
+            val targets = linked[f.key]
             if (targets == null) {
                 appendLine("${yamlKey(f.label)}: ${yamlValue(attributes.getValue(f.key))}")
             } else {

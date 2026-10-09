@@ -147,7 +147,65 @@ class WorldExporterTest {
         val linksOnly = exporter.export(w).content("Locations", "Silverport.md")
         assertTrue("Located in:\n  - \"[[Eldoria]]\"\n---" in linksOnly, linksOnly)
 
-        // Eldoria sees the inverse only through its own (IN) field, if any; no stray out-field
+        // Eldoria's sheet has no out-field for this row, so it gets no "Located in" list
         assertTrue("Located in:" !in files.content("Locations", "Eldoria.md"))
+    }
+
+    @Test
+    fun `link field wikilinks use sanitized vault names`() = runTest {
+        BuiltinTemplates.seed(db, ids) { 1L }
+        val w = worlds.create("Arda")
+        val city = templates.byBuiltinKey("location.city")!!.id
+        val odd = entities.create(w, EntityType.LOCATION, "Ba\"d: Name")
+        val town = entities.create(w, EntityType.LOCATION, "Town")
+        entities.updateContent(town, "Town", emptyList(), null, null, city, emptyMap())
+        relationships.create(w, town, odd, "located_in", "located in", "contains")
+
+        // quote/colon are illegal in vault names, so the wikilink carries the sanitized name (no YAML escaping needed)
+        val text = exporter.export(w).content("Locations", "Town.md")
+        assertTrue("Located in:\n  - \"[[Ba d Name]]\"\n" in text, text)
+    }
+
+    @Test
+    fun `link fields respect direction and target filters`() = runTest {
+        BuiltinTemplates.seed(db, ids) { 1L }
+        val w = worlds.create("Arda")
+        val charSheet = templates.byBuiltinKey("character")!!.id
+        val factionSheet = templates.byBuiltinKey("faction")!!.id
+        val guild = entities.create(w, EntityType.FACTION, "The Guild")
+        entities.updateContent(guild, "The Guild", emptyList(), null, null, factionSheet, emptyMap())
+        val kaede = entities.create(w, EntityType.CHARACTER, "Kaede")
+        entities.updateContent(kaede, "Kaede", emptyList(), null, null, charSheet, emptyMap())
+        relationships.create(w, kaede, guild, "member_of", "member of", "has member")
+
+        val files = exporter.export(w)
+        // IN field populated from a character -> faction row
+        val guildText = files.content("Factions", "The Guild.md")
+        assertTrue("Members:\n  - \"[[Kaede]]\"\n" in guildText, guildText)
+        // OUT field on the faction ignores that incoming row (kind matches, direction does not)
+        assertTrue("Allies:" !in guildText && "Headquarters:" !in guildText)
+        // target filter: under Faction, not under Race (which wants a concept.race)
+        val kaedeText = files.content("Characters", "Kaede.md")
+        assertTrue("Faction:\n  - \"[[The Guild]]\"\n" in kaedeText, kaedeText)
+        assertTrue("Race:" !in kaedeText, kaedeText)
+    }
+
+    @Test
+    fun `soft-deleted relationships and targets are not exported as links`() = runTest {
+        BuiltinTemplates.seed(db, ids) { 1L }
+        val w = worlds.create("Arda")
+        val city = templates.byBuiltinKey("location.city")!!.id
+        val town = entities.create(w, EntityType.LOCATION, "Town")
+        entities.updateContent(town, "Town", emptyList(), null, null, city, emptyMap())
+        val gone = entities.create(w, EntityType.LOCATION, "Gone")
+        val other = entities.create(w, EntityType.LOCATION, "Other")
+        val deadRel = relationships.create(w, town, other, "located_in", "located in", "contains")
+        relationships.create(w, town, gone, "located_in", "located in", "contains")
+        relationships.softDelete(deadRel)
+        entities.softDelete(gone)
+
+        val text = exporter.export(w).content("Locations", "Town.md")
+        assertTrue("Located in:" !in text, text)
+        assertTrue("[[" !in text, text)
     }
 }
