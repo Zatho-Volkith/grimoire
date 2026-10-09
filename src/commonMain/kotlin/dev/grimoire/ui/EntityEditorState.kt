@@ -11,9 +11,13 @@ import dev.grimoire.db.VariantsForEntity
 import dev.grimoire.db.Work
 import dev.grimoire.db.RelationshipsFor
 import dev.grimoire.db.LinksFor
+import dev.grimoire.template.Autofill
+import dev.grimoire.template.AutofillAction
+import dev.grimoire.template.AutofillSource
 import dev.grimoire.template.LinkDir
 import dev.grimoire.template.LinkFields
 import dev.grimoire.template.TemplateField
+import dev.grimoire.template.TemplateFields
 import kotlinx.coroutines.flow.combine
 import dev.grimoire.entity.EntityRepository
 import dev.grimoire.entity.EntityType
@@ -62,6 +66,8 @@ class EntityEditorState(
     var templateId by mutableStateOf<String?>(null); private set
     var attributes by mutableStateOf<Map<String, String>>(emptyMap()); private set
     var dirty by mutableStateOf(false); private set
+    /** Field key to the name of the entity autofill copied it from; in-memory only, cleared on the first edit. */
+    var autofilledFrom by mutableStateOf<Map<String, String>>(emptyMap()); private set
 
     // Canon layer (wiki-sourced entities only). The connector owns it; we just display it.
     var canon by mutableStateOf<CanonSnapshot?>(null); private set
@@ -163,7 +169,10 @@ class EntityEditorState(
         }
     }
     /** Attribute values survive template switches; only the visible fields change. */
-    fun editAttribute(key: String, v: String) = edit { attributes = attributes + (key to v) }
+    fun editAttribute(key: String, v: String) {
+        autofilledFrom = autofilledFrom - key
+        edit { attributes = attributes + (key to v) }
+    }
 
     // --- Relationships: written straight through (no debounce), so no flush involvement.
 
@@ -239,17 +248,58 @@ class EntityEditorState(
         }
     }
 
-    /** Creates the edge for [field] to [targetId]: OUT is this to target, IN is target to this. */
+    /**
+     * Creates the edge for [field] to [targetId], then fills empty fields whose autofill rules go
+     * through it (fill-once, chaining; see [Autofill]).
+     */
     fun addLink(field: TemplateField, targetId: String) {
-        val spec = field.link ?: return
-        val preset = RelationshipKind.entries.firstOrNull { it.key == spec.kind && it != RelationshipKind.CUSTOM }
-        val (from, to) = if (spec.dir == LinkDir.OUT) id to targetId else targetId to id
+        if (field.link == null) return
+        autofilledFrom = autofilledFrom - field.key
         scope.launch {
-            relationships.create(worldId, from, to, spec.kind, preset?.label, preset?.inverseLabel)
+            writeLink(field, targetId)
+            autofill(field.key)
         }
     }
 
-    fun removeLink(relationshipId: String) = removeRelationship(relationshipId)
+    /** The one link write path: OUT is this to target, IN is target to this; preset labels unless custom. */
+    private suspend fun writeLink(field: TemplateField, targetId: String) {
+        val spec = field.link ?: return
+        val preset = RelationshipKind.entries.firstOrNull { it.key == spec.kind && it != RelationshipKind.CUSTOM }
+        val (from, to) = if (spec.dir == LinkDir.OUT) id to targetId else targetId to id
+        relationships.create(worldId, from, to, spec.kind, preset?.label, preset?.inverseLabel)
+    }
+
+    private suspend fun fieldsOf(templateId: String?): List<TemplateField> =
+        templateId?.let { tid -> templates.template(tid).first()?.let { TemplateFields.decode(it.fields) } }.orEmpty()
+
+    private suspend fun autofill(trigger: String) {
+        val fields = fieldsOf(templateId)
+        if (fields.none { f -> f.autofill.any { it.via == trigger } }) return
+        val actions = Autofill.plan(id, fields, attributes, relationships.linksNow(id), trigger) { eid ->
+            repo.entity(eid).first()?.let { e ->
+                AutofillSource(e.id, e.name, JsonStringMap.decode(e.attributes), fieldsOf(e.template_id), relationships.linksNow(eid))
+            }
+        }
+        val byKey = fields.associateBy { it.key }
+        for (a in actions) {
+            // The user may have typed into the field while the plan was being worked out: never overwrite.
+            if (!attributes[a.fieldKey].isNullOrBlank()) continue
+            when (a) {
+                is AutofillAction.SetText -> edit { attributes = attributes + (a.fieldKey to a.value) }
+                is AutofillAction.AddLink -> {
+                    val f = byKey[a.fieldKey] ?: continue
+                    if (runCatching { writeLink(f, a.targetId) }.isFailure) continue
+                }
+            }
+            autofilledFrom = autofilledFrom + (a.fieldKey to a.fromName)
+        }
+    }
+
+    /** Soft-deletes a link-field edge; passing [field] drops that field's "from X" label. */
+    fun removeLink(relationshipId: String, field: TemplateField? = null) {
+        field?.let { autofilledFrom = autofilledFrom - it.key }
+        removeRelationship(relationshipId)
+    }
 
     /** Id of the one live entity passing [field]'s filter whose name equals [text] (trimmed, case-insensitive). */
     suspend fun exactMatch(field: TemplateField, text: String): String? {

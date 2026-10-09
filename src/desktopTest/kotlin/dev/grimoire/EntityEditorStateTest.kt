@@ -137,6 +137,26 @@ class EntityEditorStateTest {
     }
 
     @Test
+    fun `picking a race fills the character and labels provenance`() {
+        val religionTemplate = run { session.templates.byBuiltinKey("concept.religion")!!.id }
+        val kaede = entity(EntityType.CHARACTER, "Kaede", characterSheet)
+        val elf = entity(EntityType.CONCEPT, "Elf", raceTemplate)
+        val sun = entity(EntityType.CONCEPT, "Sunworshippers", religionTemplate)
+        val elfEditor = editor(elf)
+        elfEditor.addLink(field(elfEditor, raceTemplate, "religion"), sun)
+        await { run { session.relationships.linksNow(elf) }.size == 1 }
+
+        val e = editor(kaede)
+        val race = field(e, characterSheet, "race")
+        val religion = field(e, characterSheet, "religion")
+        e.addLink(race, elf)
+        await { names(e.linksOf(religion, run { e.links.first() })) == listOf("Sunworshippers") }
+        await { e.autofilledFrom["religion"] == "Elf" }
+        e.editAttribute("religion", "x")
+        assertNull(e.autofilledFrom["religion"])
+    }
+
+    @Test
     fun `scaffold only into blank notes`() {
         val blank = entity(EntityType.CHARACTER, "Blank")
         val scaffold = run { session.templates.template(characterSheet).first()!!.body_scaffold }!!
