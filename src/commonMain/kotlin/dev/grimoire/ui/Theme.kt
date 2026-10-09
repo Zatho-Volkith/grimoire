@@ -6,7 +6,6 @@ import androidx.compose.material3.DropdownMenu
 import androidx.compose.material3.DropdownMenuItem
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
-import androidx.compose.material3.Typography
 import androidx.compose.material3.darkColorScheme
 import androidx.compose.material3.lightColorScheme
 import androidx.compose.runtime.Composable
@@ -15,13 +14,18 @@ import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.graphics.Color
-import androidx.compose.ui.text.font.FontFamily
+import dev.grimoire.ui.design.GrimoireColors
 
 /**
  * Curated color themes. [key] is what `settings.json` stores; the schemes are full Material3
  * palettes so every surface, selection highlight, and divider follows the choice.
  */
-enum class AppTheme(val key: String, val label: String, val colors: ColorScheme) {
+enum class AppTheme(
+    val key: String,
+    val label: String,
+    val colors: ColorScheme,
+    val extra: GrimoireColors = GrimoireColors.derive(colors),
+) {
 
     /** Default: dark ink-violet with antique gold — the tome itself. */
     GRIMOIRE(
@@ -74,26 +78,33 @@ enum class AppTheme(val key: String, val label: String, val colors: ColorScheme)
         ),
     ),
 
+    /** Deep green with amber, in Ink & Thread's spirit — a field guide by lamplight. */
+    FOREST(
+        "forest", "Forest",
+        darkColorScheme(
+            primary = Color(0xFFE8963F), onPrimary = Color(0xFF1A1208),
+            primaryContainer = Color(0xFF4A3214), onPrimaryContainer = Color(0xFFF7DDBA),
+            secondary = Color(0xFF8FB59A), onSecondary = Color(0xFF0F2016),
+            secondaryContainer = Color(0xFF2E4636), onSecondaryContainer = Color(0xFFDCEBDF),
+            tertiary = Color(0xFFE3B95F),
+            background = Color(0xFF1B2F22), onBackground = Color(0xFFEDE6D3),
+            surface = Color(0xFF203626), onSurface = Color(0xFFEDE6D3),
+            surfaceVariant = Color(0xFF2E4636), onSurfaceVariant = Color(0xFFCFC6AE),
+            outline = Color(0xFF5E7A66), outlineVariant = Color(0xFF34503E),
+            error = Color(0xFFE58A85),
+        ),
+        GrimoireColors(
+            card = Color(0xFF22392A), field = Color(0xFF2E4636), border = Color(0xFF34503E),
+            muted = Color(0xFFE3B95F), selected = Color(0xFFE8963F).copy(alpha = 0.16f),
+        ),
+    ),
+
     /** Plain light, for daylight and pragmatists. */
     IVORY("ivory", "Ivory", lightColorScheme());
 
     companion object {
         fun fromKey(key: String?): AppTheme = entries.firstOrNull { it.key == key } ?: GRIMOIRE
     }
-}
-
-/** Serif display faces over the default body text — headings read like a chapter plate. */
-val GrimoireTypography: Typography = Typography().let { t ->
-    t.copy(
-        displayLarge = t.displayLarge.copy(fontFamily = FontFamily.Serif),
-        displayMedium = t.displayMedium.copy(fontFamily = FontFamily.Serif),
-        displaySmall = t.displaySmall.copy(fontFamily = FontFamily.Serif),
-        headlineLarge = t.headlineLarge.copy(fontFamily = FontFamily.Serif),
-        headlineMedium = t.headlineMedium.copy(fontFamily = FontFamily.Serif),
-        headlineSmall = t.headlineSmall.copy(fontFamily = FontFamily.Serif),
-        titleLarge = t.titleLarge.copy(fontFamily = FontFamily.Serif),
-        titleMedium = t.titleMedium.copy(fontFamily = FontFamily.Serif),
-    )
 }
 
 /** Compact theme picker for screen headers. */

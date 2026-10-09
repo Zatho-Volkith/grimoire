@@ -4,16 +4,25 @@ import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Surface
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.CompositionLocalProvider
+import androidx.compose.runtime.remember
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.input.key.onPreviewKeyEvent
+import dev.grimoire.ui.design.GrimoireFonts
+import dev.grimoire.ui.design.LocalGrimoireColors
+import dev.grimoire.ui.design.grimoireTypography
 
+/** [fonts] defaults to system faces so tests can call `App(session)`; desktop passes the bundled ones. */
 @Composable
-fun App(session: Session) {
-    MaterialTheme(colorScheme = session.theme.colors, typography = GrimoireTypography) {
-        Surface(Modifier.fillMaxSize().onPreviewKeyEvent { handleShortcut(session, it) }) {
-            when (val ws = session.workspace) {
-                null -> WorldPickerScreen(session)
-                else -> WorkspaceScreen(session, ws)
+fun App(session: Session, fonts: GrimoireFonts = GrimoireFonts.System) {
+    val typography = remember(fonts) { grimoireTypography(fonts) }
+    MaterialTheme(colorScheme = session.theme.colors, typography = typography) {
+        CompositionLocalProvider(LocalGrimoireColors provides session.theme.extra) {
+            Surface(Modifier.fillMaxSize().onPreviewKeyEvent { handleShortcut(session, it) }) {
+                when (val ws = session.workspace) {
+                    null -> WorldPickerScreen(session)
+                    else -> WorkspaceScreen(session, ws)
+                }
             }
         }
     }
