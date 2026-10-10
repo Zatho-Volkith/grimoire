@@ -54,7 +54,7 @@ fun WorkEditor(state: WorkEditorState, onDelete: () -> Unit, onOpenEntity: (Stri
             titleField = {
                 GField(
                     state.title, state::editTitle, placeholder = "Title",
-                    textStyle = MaterialTheme.typography.headlineMedium, fieldModifier = Modifier.testTag("page-title"),
+                    textStyle = MaterialTheme.typography.headlineMedium, fieldModifier = Modifier.testTag("page-title"), bare = true,
                 )
             },
             subtitle = "${chapters.sumOf { it.word_count }} words total",

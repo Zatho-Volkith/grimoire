@@ -103,3 +103,16 @@ compose.desktop {
         }
     }
 }
+
+// On-demand visual review: renders the main screens in every theme to build/screenshots/<theme>/.
+// Not part of `build` — run `./gradlew screenshots` when the UI changes.
+val screenshots by tasks.registering(Test::class) {
+    description = "Renders the main screens in every theme to build/screenshots."
+    group = "verification"
+    val desktopTest = tasks.named<Test>("desktopTest")
+    testClassesDirs = desktopTest.get().testClassesDirs
+    classpath = desktopTest.get().classpath
+    filter { includeTestsMatching("dev.grimoire.Screenshots") }
+    systemProperty("grimoire.screenshots", "true")
+    outputs.upToDateWhen { false }
+}

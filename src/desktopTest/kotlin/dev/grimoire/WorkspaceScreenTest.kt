@@ -437,7 +437,8 @@ class WorkspaceScreenTest {
         rule.setContent { App(session) }
 
         rule.onNodeWithText("Works").performClick()
-        rule.onNodeWithText("Fic").performClick()
+        rule.waitUntilAtLeastOneExists(hasText("Fic") and hasClickAction(), 5_000)
+        rule.onNode(hasText("Fic") and hasClickAction()).performClick()
         rule.waitUntil(5_000) { session.workspace?.workEditor?.chapterEditor?.loaded == true }
 
         rule.onNodeWithTag("chapter-body").performTextInputSelection(TextRange(body.indexOf("hi")))

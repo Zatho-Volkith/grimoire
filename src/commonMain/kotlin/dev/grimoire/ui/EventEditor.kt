@@ -55,7 +55,7 @@ fun EventEditor(state: EventEditorState, onDelete: () -> Unit, onMove: (Int) -> 
                 titleField = {
                     GField(
                         state.title, state::editTitle, placeholder = "Title",
-                        textStyle = MaterialTheme.typography.headlineMedium, fieldModifier = Modifier.testTag("page-title"),
+                        textStyle = MaterialTheme.typography.headlineMedium, fieldModifier = Modifier.testTag("page-title"), bare = true,
                     )
                 },
             ) {

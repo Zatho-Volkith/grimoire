@@ -60,7 +60,7 @@ fun EntityEditor(state: EntityEditorState, onDelete: () -> Unit, onOpenEntity: (
             PageHeader(
                 titleField = {
                     GField(
-                        state.name, state::editName, fieldModifier = Modifier.testTag("page-title"),
+                        state.name, state::editName, fieldModifier = Modifier.testTag("page-title"), bare = true,
                         placeholder = "Name", textStyle = MaterialTheme.typography.headlineMedium,
                     )
                 },

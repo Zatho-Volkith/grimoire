@@ -49,7 +49,7 @@ fun TemplateEditor(state: TemplateEditorState, onDelete: () -> Unit) {
                     GField(
                         state.name, state::editName, placeholder = "Template name",
                         textStyle = MaterialTheme.typography.headlineMedium,
-                        fieldModifier = Modifier.testTag("page-title"),
+                        fieldModifier = Modifier.testTag("page-title"), bare = true,
                     )
                 },
                 subtitle = "${state.entityType.label} template",

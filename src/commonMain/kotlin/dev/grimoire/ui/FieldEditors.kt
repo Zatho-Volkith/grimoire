@@ -1,5 +1,6 @@
 package dev.grimoire.ui
 
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -76,7 +77,7 @@ private fun OptionsField(state: EntityEditorState, field: TemplateField) {
     Box(Modifier.fillMaxWidth()) {
         GField(
             text, { state.editAttribute(field.key, it); open = true }, Modifier.fillMaxWidth(), label = field.label,
-            trailing = { GButton("▾", { open = !open }, kind = ButtonKind.QUIET) },
+            trailing = { Text("▾", color = MaterialTheme.grimoire.muted, modifier = Modifier.clickable { open = !open }) },
         )
         DropdownMenu(expanded = open && shown.isNotEmpty(), onDismissRequest = { open = false }) {
             shown.forEach { o ->

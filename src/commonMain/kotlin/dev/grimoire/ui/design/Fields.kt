@@ -25,6 +25,7 @@ import androidx.compose.runtime.getValue
 import androidx.compose.runtime.remember
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.SolidColor
 import androidx.compose.ui.input.key.KeyEvent
 import androidx.compose.ui.input.key.onPreviewKeyEvent
@@ -50,6 +51,7 @@ fun GField(
     onPreviewKeyEvent: ((KeyEvent) -> Boolean)? = null,
     textStyle: TextStyle? = null,
     fieldModifier: Modifier = Modifier,
+    bare: Boolean = false,
 ) {
     val interaction = remember { MutableInteractionSource() }
     FieldLabel(modifier, label) {
@@ -60,7 +62,7 @@ fun GField(
             textStyle = (textStyle ?: MaterialTheme.typography.bodyMedium).copy(color = MaterialTheme.colorScheme.onSurface),
             cursorBrush = SolidColor(MaterialTheme.colorScheme.primary),
             interactionSource = interaction,
-            decorationBox = { field -> FieldDecoration(value.isEmpty(), placeholder ?: label, interaction, trailing, field) },
+            decorationBox = { field -> FieldDecoration(value.isEmpty(), placeholder ?: label, interaction, trailing, bare, field) },
         )
     }
 }
@@ -80,6 +82,7 @@ fun GField(
     onPreviewKeyEvent: ((KeyEvent) -> Boolean)? = null,
     textStyle: TextStyle? = null,
     fieldModifier: Modifier = Modifier,
+    bare: Boolean = false,
 ) {
     val interaction = remember { MutableInteractionSource() }
     FieldLabel(modifier, label) {
@@ -90,7 +93,7 @@ fun GField(
             textStyle = (textStyle ?: MaterialTheme.typography.bodyMedium).copy(color = MaterialTheme.colorScheme.onSurface),
             cursorBrush = SolidColor(MaterialTheme.colorScheme.primary),
             interactionSource = interaction,
-            decorationBox = { field -> FieldDecoration(value.text.isEmpty(), placeholder ?: label, interaction, trailing, field) },
+            decorationBox = { field -> FieldDecoration(value.text.isEmpty(), placeholder ?: label, interaction, trailing, bare, field) },
         )
     }
 }
@@ -150,12 +153,15 @@ private fun FieldDecoration(
     hint: String?,
     interaction: MutableInteractionSource,
     trailing: (@Composable () -> Unit)?,
+    bare: Boolean,
     field: @Composable () -> Unit,
 ) {
     val focused by interaction.collectIsFocusedAsState()
-    val edge = if (focused) MaterialTheme.colorScheme.primary else MaterialTheme.grimoire.field
+    // Bare fields (page titles) read as plain headings until focused, then show the usual fill.
+    val fill = if (bare && !focused) Color.Transparent else MaterialTheme.grimoire.field
+    val edge = if (focused) MaterialTheme.colorScheme.primary else fill
     Row(
-        Modifier.background(MaterialTheme.grimoire.field, fieldShape).border(1.dp, edge, fieldShape)
+        Modifier.background(fill, fieldShape).border(1.dp, edge, fieldShape)
             .padding(horizontal = Space.md, vertical = 9.dp),
         verticalAlignment = Alignment.CenterVertically,
     ) {
