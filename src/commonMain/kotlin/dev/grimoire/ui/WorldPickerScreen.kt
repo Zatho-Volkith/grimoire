@@ -1,6 +1,8 @@
 package dev.grimoire.ui
 
 import androidx.compose.foundation.background
+import androidx.compose.foundation.clickable
+import dev.grimoire.world.isArchived
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -36,7 +38,11 @@ import dev.grimoire.ui.design.grimoire
 @Composable
 fun WorldPickerScreen(session: Session) {
     val worlds by session.worlds.worlds().collectAsState(initial = emptyList())
+    val trashed by session.worlds.deleted().collectAsState(initial = emptyList())
     var name by remember { mutableStateOf("") }
+    // Held here, not in the cards: a card leaves the screen when its list empties and should reopen as it was.
+    var archivedOpen by remember { mutableStateOf(false) }
+    var trashOpen by remember { mutableStateOf(false) }
 
     Box(Modifier.fillMaxSize().background(MaterialTheme.colorScheme.background).verticalScroll(rememberScrollState())) {
         Column(
@@ -61,15 +67,57 @@ fun WorldPickerScreen(session: Session) {
                 }
             }
 
+            val (archived, active) = worlds.partition { it.isArchived }
             GCard(
                 Modifier.testTag("card-your-worlds"), title = "Your worlds",
-                caption = if (worlds.isEmpty()) "No worlds yet. Create one above." else null,
+                caption = if (active.isEmpty()) "No worlds yet. Create one above." else null,
             ) {
-                worlds.forEach { w -> ListRow(w.name, { session.openWorld(w.id) }, secondary = w.summary) }
+                active.forEach { w ->
+                    ListRow(w.name, { session.openWorld(w.id) }, secondary = w.summary) {
+                        GButton("Archive", { session.archiveWorld(w.id, true) }, Modifier.testTag("world-archive-${w.id}"), kind = ButtonKind.QUIET)
+                        GButton("Trash", { session.trashWorld(w.id) }, Modifier.testTag("world-trash-${w.id}"), kind = ButtonKind.DANGER)
+                    }
+                }
+            }
+
+            if (archived.isNotEmpty()) {
+                CollapsibleCard("Archived (${archived.size})", "Finished worlds — still here, out of the way.", "card-archived", archivedOpen, { archivedOpen = !archivedOpen }) {
+                    archived.forEach { w ->
+                        ListRow(w.name, { session.openWorld(w.id) }, secondary = w.summary) {
+                            GButton("Unarchive", { session.archiveWorld(w.id, false) }, Modifier.testTag("world-unarchive-${w.id}"), kind = ButtonKind.QUIET)
+                            GButton("Trash", { session.trashWorld(w.id) }, Modifier.testTag("world-trash-${w.id}"), kind = ButtonKind.DANGER)
+                        }
+                    }
+                }
+            }
+
+            if (trashed.isNotEmpty()) {
+                CollapsibleCard("Trash (${trashed.size})", "Trashed worlds keep everything in them until you restore them.", "card-world-trash", trashOpen, { trashOpen = !trashOpen }) {
+                    trashed.forEach { w ->
+                        ListRow(w.name, {}, secondary = w.summary) {
+                            GButton("Restore", { session.restoreWorld(w.id) }, Modifier.testTag("world-restore-${w.id}"), kind = ButtonKind.QUIET)
+                        }
+                    }
+                }
             }
 
             UpdateRow(session)
         }
+    }
+}
+
+/** A card whose body opens and closes from its title row. */
+@Composable
+private fun CollapsibleCard(title: String, caption: String, tag: String, open: Boolean, onToggle: () -> Unit, content: @Composable () -> Unit) {
+    GCard(Modifier.testTag(tag)) {
+        Row(Modifier.fillMaxWidth().clickable(onClick = onToggle), verticalAlignment = Alignment.CenterVertically) {
+            Text(if (open) "▾" else "▸", color = MaterialTheme.grimoire.muted, modifier = Modifier.padding(end = Space.sm))
+            Column(Modifier.weight(1f)) {
+                Text(title, style = MaterialTheme.typography.titleMedium)
+                Text(caption, style = MaterialTheme.typography.bodySmall, color = MaterialTheme.grimoire.muted)
+            }
+        }
+        if (open) content()
     }
 }
 

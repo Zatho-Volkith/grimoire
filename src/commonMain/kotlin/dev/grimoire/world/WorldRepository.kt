@@ -3,6 +3,7 @@ package dev.grimoire.world
 import app.cash.sqldelight.coroutines.asFlow
 import app.cash.sqldelight.coroutines.mapToList
 import app.cash.sqldelight.coroutines.mapToOneOrNull
+import dev.grimoire.db.DeletedWorlds
 import dev.grimoire.db.GrimoireDatabase
 import dev.grimoire.db.World
 import dev.grimoire.id.IdGenerator
@@ -36,5 +37,24 @@ class WorldRepository(
             )
         }
         worldId
+    }
+
+    /** Archived worlds stay live (openable, listed separately); the flag merges into existing settings. */
+    suspend fun archive(id: String, archived: Boolean) = withContext(Dispatchers.IO) {
+        val current = db.grimoireQueries.worldById(id).executeAsOneOrNull() ?: return@withContext
+        db.grimoireQueries.updateWorldSettings(WorldSettings.withArchived(current.settings, archived), clock(), id)
+    }
+
+    fun deleted(): Flow<List<DeletedWorlds>> =
+        db.grimoireQueries.deletedWorlds().asFlow().mapToList(Dispatchers.IO)
+
+    /** Soft delete: the world and everything in it stay on disk until restored. */
+    suspend fun softDelete(id: String) = withContext(Dispatchers.IO) {
+        val now = clock()
+        db.grimoireQueries.softDeleteWorld(deleted_at = now, updated_at = now, id = id)
+    }
+
+    suspend fun restore(id: String) = withContext(Dispatchers.IO) {
+        db.grimoireQueries.restoreWorld(updated_at = clock(), id = id)
     }
 }

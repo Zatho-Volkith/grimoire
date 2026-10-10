@@ -535,6 +535,30 @@ class WorkspaceScreenTest {
     }
 
     @Test
+    fun `worlds can be archived, trashed and restored from the picker`() {
+        val w = runBlocking { worlds.create("Arda") }
+        rule.setContent { App(session) }
+
+        rule.waitUntilAtLeastOneExists(hasTestTag("world-archive-$w"), 5_000)
+        rule.onNodeWithTag("world-archive-$w").performClick()
+        rule.waitUntilAtLeastOneExists(hasText("Archived (1)"), 5_000)
+        rule.onNodeWithText("Archived (1)").performClick() // expand
+        rule.waitUntilAtLeastOneExists(hasTestTag("world-trash-$w"), 5_000)
+
+        rule.onNodeWithTag("world-trash-$w").performClick()
+        rule.waitUntilAtLeastOneExists(hasText("Trash (1)"), 5_000)
+        rule.onNodeWithText("Trash (1)").performClick() // expand
+        rule.waitUntilAtLeastOneExists(hasTestTag("world-restore-$w"), 5_000)
+        rule.onNodeWithTag("world-restore-$w").performClick()
+
+        // Back in the live list, still archived: restore undoes the trash, not the archive.
+        rule.waitUntil(5_000) { runBlocking { worlds.deleted().first() }.isEmpty() }
+        rule.waitUntilAtLeastOneExists(hasTestTag("world-unarchive-$w"), 5_000)
+        rule.onNodeWithTag("world-unarchive-$w").performClick()
+        rule.waitUntilAtLeastOneExists(hasTestTag("world-archive-$w"), 5_000)
+    }
+
+    @Test
     fun `theme menu switches the palette from the world picker`() {
         rule.setContent { App(session) }
         assertEquals(dev.grimoire.ui.AppTheme.GRIMOIRE, session.theme)

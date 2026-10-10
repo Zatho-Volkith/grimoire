@@ -58,6 +58,20 @@ class Session(
         scope.launch { openWorld(worlds.create(name)) }
     }
 
+    /** Finished worlds: kept and openable, listed apart on the picker. */
+    fun archiveWorld(id: String, archived: Boolean) {
+        scope.launch { worlds.archive(id, archived) }
+    }
+
+    /** Soft delete; the world and everything in it come back with [restoreWorld]. */
+    fun trashWorld(id: String) {
+        scope.launch { worlds.softDelete(id) }
+    }
+
+    fun restoreWorld(id: String) {
+        scope.launch { worlds.restore(id) }
+    }
+
     /** Seeds and opens the optional guided-tour world. Disposable like any other world. */
     fun createTutorialWorld() {
         scope.launch {

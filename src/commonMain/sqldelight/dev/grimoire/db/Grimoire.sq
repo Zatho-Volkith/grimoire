@@ -396,6 +396,19 @@ VALUES (?, ?, ?, ?, ?, ?, ?);
 worldById:
 SELECT * FROM world WHERE id = ?;
 
+-- Archive is a flag inside settings (JSON); trash is the usual soft delete.
+updateWorldSettings:
+UPDATE world SET settings = ?, updated_at = ? WHERE id = ?;
+
+softDeleteWorld:
+UPDATE world SET deleted_at = ?, updated_at = ? WHERE id = ?;
+
+restoreWorld:
+UPDATE world SET deleted_at = NULL, updated_at = ? WHERE id = ?;
+
+deletedWorlds:
+SELECT * FROM world WHERE deleted_at IS NOT NULL ORDER BY deleted_at DESC;
+
 
 -- Every world gets one user_authored source at creation; user-made entities hang off it.
 insertSource:
