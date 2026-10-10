@@ -126,7 +126,8 @@ fun GTextArea(
     label: String? = null,
     placeholder: String? = null,
     minLines: Int = 3,
-) = GField(value, onValueChange, modifier, label, placeholder, singleLine = false, minLines = minLines)
+    fieldModifier: Modifier = Modifier,
+) = GField(value, onValueChange, modifier, label, placeholder, singleLine = false, minLines = minLines, fieldModifier = fieldModifier)
 
 // The editable node is its own semantics boundary; merging into it puts the in-field hint in its
 // semantics, so an empty field is found by its label, as with Material's floating label. Tags, focus

@@ -261,6 +261,8 @@ class WorkspaceScreenTest {
         rule.waitUntil(5_000) { session.workspace?.templateEditor?.loaded == true }
         rule.onNode(hasSetTextAction() and hasText("New field")).performTextInput("Language")
         rule.onNodeWithText("Add field").performClick()
+        rule.waitUntilAtLeastOneExists(hasTestTag("field-row-language"), 5_000)
+        rule.onNodeWithTag("field-row-language").performClick() // options live in the row's expanded detail
         rule.waitUntilAtLeastOneExists(hasTestTag("field-options-language"), 5_000)
 
         rule.onNodeWithTag("field-options-language").performTextInput("a, b")
@@ -472,6 +474,25 @@ class WorkspaceScreenTest {
             rule.onNodeWithTag(it).assertExists()
         }
         rule.onNodeWithTag("page-title").assertTextContains("Kaede")
+    }
+
+    @Test
+    fun `one template field row expands at a time`() {
+        val w = runBlocking { worlds.create("Arda") }
+        dev.grimoire.template.BuiltinTemplates.seed(db, ids, System::currentTimeMillis)
+        val sheet = runBlocking { templates.byBuiltinKey("character") }!!.id
+        session.openWorld(w)
+        rule.setContent { App(session) }
+        session.workspace!!.selectTemplates()
+        session.workspace!!.openTemplate(sheet)
+        rule.waitUntil(5_000) { session.workspace?.templateEditor?.loaded == true }
+
+        rule.waitUntilAtLeastOneExists(hasTestTag("field-row-race"), 5_000)
+        rule.onNodeWithTag("field-row-race").performScrollTo().performClick()
+        rule.waitUntilAtLeastOneExists(hasTestTag("field-detail-race"), 5_000)
+        rule.onNodeWithTag("field-row-faction").performScrollTo().performClick()
+        rule.waitUntilAtLeastOneExists(hasTestTag("field-detail-faction"), 5_000)
+        rule.onAllNodesWithTag("field-detail-race").assertCountEquals(0)
     }
 
     @Test
