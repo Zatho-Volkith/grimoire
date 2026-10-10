@@ -48,6 +48,11 @@ import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.SupervisorJob
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.runBlocking
+import androidx.compose.ui.test.getUnclippedBoundsInRoot
+import androidx.compose.ui.unit.dp
+import androidx.compose.ui.unit.width
+import androidx.compose.foundation.layout.requiredSize
+import kotlin.test.assertTrue
 import org.junit.Rule
 import org.junit.Test
 import kotlin.io.path.createTempDirectory
@@ -94,7 +99,7 @@ class WorkspaceScreenTest {
         rule.waitUntil(5_000) { session.workspace?.editor?.loaded == true }
         rule.waitUntilAtLeastOneExists(hasText("New Location") and hasSetTextAction(), 5_000)
 
-        val nameField = rule.onNode(hasSetTextAction() and hasText("Name"))
+        val nameField = rule.onNodeWithTag("page-title")
         nameField.performTextClearance()
         nameField.performTextInput("Rivertown")
         runBlocking { session.flush() }
@@ -105,7 +110,7 @@ class WorkspaceScreenTest {
 
         rule.onNode(hasSetTextAction() and hasText("Search all entities")).performTextInput("river")
         rule.waitUntilAtLeastOneExists(hasText("1 RESULT(S)"), 5_000)
-        rule.onNodeWithText("Location").assertIsDisplayed() // type shown as subtitle in search results
+        rule.onNode(hasText("Location") and hasClickAction()).assertIsDisplayed() // type shown as subtitle in search results
     }
 
     @Test
@@ -441,6 +446,32 @@ class WorkspaceScreenTest {
 
         rule.waitUntil(5_000) { session.workspace?.workEditor?.chapterEditor?.textConvo == null }
         assertEquals(body, session.workspace?.workEditor?.chapterEditor?.body)
+    }
+
+    @Test
+    fun `entity editor is carded and width-capped`() {
+        val w = runBlocking { worlds.create("Arda") }
+        dev.grimoire.template.BuiltinTemplates.seed(db, ids, System::currentTimeMillis)
+        val sheet = runBlocking { templates.byBuiltinKey("character") }!!.id
+        val kaede = runBlocking { entities.create(w, EntityType.CHARACTER, "Kaede") }
+        runBlocking {
+            entities.updateContent(kaede, "Kaede", emptyList(), null, null, sheet, emptyMap())
+        }
+        session.openWorld(w)
+        rule.setContent {
+            androidx.compose.foundation.layout.Box(androidx.compose.ui.Modifier.requiredSize(1600.dp, 1000.dp)) { App(session) }
+        }
+        session.workspace!!.open(kaede)
+        rule.waitUntil(5_000) { session.workspace?.editor?.loaded == true }
+
+        rule.waitUntilAtLeastOneExists(hasTestTag("editor-content"), 5_000)
+        val width = rule.onNodeWithTag("editor-content").getUnclippedBoundsInRoot().width
+        assertTrue(width <= 960.dp, "editor content is $width wide")
+        rule.waitUntilAtLeastOneExists(hasTestTag("card-group-Ties"), 5_000)
+        listOf("card-overview", "card-notes", "card-relationships", "card-variants").forEach {
+            rule.onNodeWithTag(it).assertExists()
+        }
+        rule.onNodeWithTag("page-title").assertTextContains("Kaede")
     }
 
     @Test

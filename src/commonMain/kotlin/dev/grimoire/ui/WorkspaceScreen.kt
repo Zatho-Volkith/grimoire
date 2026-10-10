@@ -156,7 +156,7 @@ private fun EntitiesSection(ws: WorkspaceState) {
     LaunchedEffect(ws.focusSearchTick) { if (ws.focusSearchTick > 0) searchFocus.requestFocus() }
 
     ListPane {
-        GField(ws.search, ws::searchFor, Modifier.fillMaxWidth().focusRequester(searchFocus), placeholder = "Search all entities")
+        GField(ws.search, ws::searchFor, Modifier.fillMaxWidth(), placeholder = "Search all entities", fieldModifier = Modifier.focusRequester(searchFocus))
         GButton("New ${ws.type.label}", ws::createEntity, Modifier.fillMaxWidth(), kind = ButtonKind.PRIMARY, icon = IconSlot.ADD)
         GButton("Import from wiki", ws::openWikiImport, Modifier.fillMaxWidth(), kind = ButtonKind.QUIET)
         SourceFilterRow(ws)

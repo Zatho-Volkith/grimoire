@@ -61,6 +61,7 @@ class EntityEditorState(
 ) {
     var loaded by mutableStateOf(false); private set
     var worldId: String = ""; private set
+    var type: EntityType = EntityType.CHARACTER; private set
     var name by mutableStateOf(""); private set
     var aliasesText by mutableStateOf(""); private set
     var summary by mutableStateOf(""); private set
@@ -116,7 +117,8 @@ class EntityEditorState(
         body = e.body.orEmpty()
         templateId = e.template_id
         attributes = JsonStringMap.decode(e.attributes)
-        templateOptions = templates.forType(worldId, EntityType.fromKey(e.type))
+        type = EntityType.fromKey(e.type)
+        templateOptions = templates.forType(worldId, type)
         workOptions = works.forWorld(worldId)
         val source = repo.sourceById(e.source_id)
         if (source?.kind == "fandom_wiki") {

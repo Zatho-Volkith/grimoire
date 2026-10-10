@@ -1,153 +1,154 @@
 package dev.grimoire.ui
 
+import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
-import androidx.compose.foundation.layout.Spacer
-import androidx.compose.material3.Button
-import androidx.compose.material3.HorizontalDivider
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
-import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.widthIn
 import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.DropdownMenuItem
-import androidx.compose.material3.ExperimentalMaterial3Api
-import androidx.compose.material3.ExposedDropdownMenuAnchorType
-import androidx.compose.material3.ExposedDropdownMenuBox
-import androidx.compose.material3.ExposedDropdownMenuDefaults
 import androidx.compose.material3.MaterialTheme
-import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Text
-import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
-import androidx.compose.foundation.layout.width
-import dev.grimoire.template.TemplateFields
-import androidx.compose.foundation.clickable
-import androidx.compose.ui.platform.testTag
-import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.unit.dp
+import dev.grimoire.db.LinksFor
+import dev.grimoire.template.TemplateField
+import dev.grimoire.template.TemplateFields
+import dev.grimoire.ui.design.ButtonKind
+import dev.grimoire.ui.design.GButton
+import dev.grimoire.ui.design.GCard
+import dev.grimoire.ui.design.GField
+import dev.grimoire.ui.design.GSelect
+import dev.grimoire.ui.design.GTextArea
+import dev.grimoire.ui.design.ListRow
+import dev.grimoire.ui.design.PageHeader
+import dev.grimoire.ui.design.Radius
+import dev.grimoire.ui.design.SectionLabel
+import dev.grimoire.ui.design.Space
+import dev.grimoire.ui.design.Widths
+import dev.grimoire.ui.design.grimoire
 
+/** The entity editor: a width-capped stack of cards under a page header with the editable name. */
 @Composable
 fun EntityEditor(state: EntityEditorState, onDelete: () -> Unit, onOpenEntity: (String) -> Unit, onOpenChapter: (String, String) -> Unit) {
     if (!state.loaded) return
+    val links by state.links.collectAsState(initial = emptyList())
+    val options by state.templateOptions.collectAsState(initial = emptyList())
+    val template = options.firstOrNull { it.id == state.templateId }
+    val fields = remember(template?.fields) { template?.let { TemplateFields.decode(it.fields) }.orEmpty() }
 
-    Column(
-        Modifier.fillMaxSize().verticalScroll(rememberScrollState()).padding(16.dp),
-        verticalArrangement = Arrangement.spacedBy(12.dp),
-    ) {
-        Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
-            OutlinedTextField(
-                state.name, state::editName,
-                label = { Text("Name") }, singleLine = true,
-                textStyle = MaterialTheme.typography.headlineSmall,
-                modifier = Modifier.weight(1f),
-            )
-            Spacer(Modifier.padding(4.dp))
-            Text(
-                if (state.dirty) "Unsaved" else "Saved",
-                style = MaterialTheme.typography.labelSmall,
-                color = MaterialTheme.colorScheme.outline,
-            )
-            TextButton(onClick = onDelete) { Text("Delete", color = MaterialTheme.colorScheme.error) }
-        }
-        if (state.showCanonDiff) CanonDiffDialog(state)
-        if (state.assignedSourceId != null) SourceAssignRow(state)
-        state.sourceLabel?.let { label ->
-            Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                Text("Canon: $label", style = MaterialTheme.typography.labelMedium, color = MaterialTheme.colorScheme.outline)
-                if (state.differsFromCanon) {
-                    TextButton(onClick = state::openCanonDiff) {
-                        Text("differs from canon — compare", color = MaterialTheme.colorScheme.tertiary)
-                    }
-                }
-                TextButton(onClick = state::refreshCanon) { Text("Refresh canon") }
-                state.canonStatus?.let { Text(it, style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.outline) }
+    Box(Modifier.fillMaxSize().verticalScroll(rememberScrollState())) {
+        Column(
+            Modifier.align(Alignment.TopCenter).widthIn(max = Widths.editor).fillMaxWidth()
+                .padding(Space.xl).testTag("editor-content"),
+            verticalArrangement = Arrangement.spacedBy(Space.lg),
+        ) {
+            PageHeader(
+                titleField = {
+                    GField(
+                        state.name, state::editName, fieldModifier = Modifier.testTag("page-title"),
+                        placeholder = "Name", textStyle = MaterialTheme.typography.headlineMedium,
+                    )
+                },
+                subtitle = listOfNotNull(state.type.label, state.sourceLabel?.let { "Canon: $it" }).joinToString(" · "),
+            ) {
+                Text(
+                    if (state.dirty) "Unsaved" else "Saved",
+                    style = MaterialTheme.typography.labelMedium, color = MaterialTheme.grimoire.muted,
+                )
+                GButton("Delete", onDelete, kind = ButtonKind.QUIET)
             }
+            if (state.showCanonDiff) CanonDiffDialog(state)
+
+            OverviewCard(state, options.map { it.id to it.name }, template?.name)
+            FieldCards(state, fields, links, onOpenEntity)
+            GCard(Modifier.testTag("card-notes"), title = "Notes") {
+                GTextArea(state.body, state::editBody, Modifier.fillMaxWidth(), placeholder = "Notes", minLines = 12)
+            }
+            RelationshipsPanel(state, onOpenEntity)
+            AppearancesCard(state, onOpenChapter)
+            VariantsCard(state)
         }
-        OutlinedTextField(
-            state.aliasesText, state::editAliasesText,
-            label = { Text("Aliases (comma-separated)") }, singleLine = true,
-            modifier = Modifier.fillMaxWidth(),
-        )
-        OutlinedTextField(
-            state.summary, state::editSummary,
-            label = { Text("Summary") }, minLines = 2,
-            modifier = Modifier.fillMaxWidth(),
-        )
-        AttributesPanel(state, onOpenEntity)
-        OutlinedTextField(
-            state.body, state::editBody,
-            label = { Text("Notes") }, minLines = 12,
-            modifier = Modifier.fillMaxWidth().heightIn(min = 300.dp),
-        )
-        RelationshipsPanel(state, onOpenEntity)
-        AppearancesPanel(state, onOpenChapter)
-        VariantsPanel(state)
     }
 }
 
-/** Template picker plus the attribute fields the chosen template declares. */
-@OptIn(ExperimentalMaterial3Api::class)
 @Composable
-private fun AttributesPanel(state: EntityEditorState, onOpenEntity: (String) -> Unit) {
-    val links by state.links.collectAsState(initial = emptyList())
-    val options by state.templateOptions.collectAsState(initial = emptyList())
-    val selected = options.firstOrNull { it.id == state.templateId }
-    var open by remember { mutableStateOf(false) }
-
-    Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
-        ExposedDropdownMenuBox(expanded = open, onExpandedChange = { open = it }, modifier = Modifier.width(320.dp)) {
-            OutlinedTextField(
-                value = selected?.name ?: "None",
-                onValueChange = {}, readOnly = true, singleLine = true,
-                label = { Text("Template") },
-                trailingIcon = { ExposedDropdownMenuDefaults.TrailingIcon(open) },
-                modifier = Modifier.menuAnchor(ExposedDropdownMenuAnchorType.PrimaryNotEditable),
-            )
-            ExposedDropdownMenu(expanded = open, onDismissRequest = { open = false }) {
-                DropdownMenuItem(text = { Text("None") }, onClick = { state.selectTemplate(null); open = false })
-                options.forEach { t ->
-                    DropdownMenuItem(text = { Text(t.name) }, onClick = { state.selectTemplate(t.id); open = false })
+private fun OverviewCard(state: EntityEditorState, templates: List<Pair<String, String>>, templateName: String?) {
+    GCard(Modifier.testTag("card-overview"), title = "Overview") {
+        state.sourceLabel?.let { CanonStrip(state, it) }
+        Row(horizontalArrangement = Arrangement.spacedBy(Space.md)) {
+            if (state.assignedSourceId != null) SourceAssignSelect(state, Modifier.weight(1f))
+            GSelect(templateName ?: "None", Modifier.weight(1f), label = "Template") { close ->
+                DropdownMenuItem(text = { Text("None") }, onClick = { state.selectTemplate(null); close() })
+                templates.forEach { (id, name) ->
+                    DropdownMenuItem(text = { Text(name) }, onClick = { state.selectTemplate(id); close() })
                 }
             }
         }
-        selected?.let { t ->
-            val fields = remember(t.fields) { TemplateFields.decode(t.fields) }
-            val ungrouped = fields.filter { it.group == null }
+        GField(state.aliasesText, state::editAliasesText, Modifier.fillMaxWidth(), label = "Aliases (comma-separated)")
+        GTextArea(state.summary, state::editSummary, Modifier.fillMaxWidth(), label = "Summary", minLines = 2)
+    }
+}
+
+/** Thin accent strip for wiki-sourced entities: where canon came from, drift, refresh. */
+@Composable
+private fun CanonStrip(state: EntityEditorState, label: String) {
+    Row(
+        Modifier.fillMaxWidth().background(MaterialTheme.grimoire.selected, RoundedCornerShape(Radius.field))
+            .padding(horizontal = Space.md, vertical = Space.xs),
+        verticalAlignment = Alignment.CenterVertically,
+        horizontalArrangement = Arrangement.spacedBy(Space.sm),
+    ) {
+        Text("Canon: $label", style = MaterialTheme.typography.labelMedium, modifier = Modifier.weight(1f))
+        state.canonStatus?.let { Text(it, style = MaterialTheme.typography.labelSmall, color = MaterialTheme.grimoire.muted) }
+        if (state.differsFromCanon) GButton("differs from canon — compare", state::openCanonDiff, kind = ButtonKind.QUIET)
+        GButton("Refresh canon", state::refreshCanon, kind = ButtonKind.QUIET)
+    }
+}
+
+/** One card per template group, ungrouped fields first in an untitled card. */
+@Composable
+private fun FieldCards(state: EntityEditorState, fields: List<TemplateField>, links: List<LinksFor>, onOpenEntity: (String) -> Unit) {
+    if (fields.isEmpty()) return
+    val ungrouped = fields.filter { it.group == null }
+    if (ungrouped.isNotEmpty()) {
+        GCard(Modifier.testTag("card-group-fields")) {
             ungrouped.forEach { FieldEditor(state, it, links, onOpenEntity) }
-            fields.mapNotNull { it.group }.distinct().forEach { g ->
-                Text(
-                    g, style = MaterialTheme.typography.labelLarge,
-                    modifier = Modifier.padding(top = 4.dp).testTag("field-group"),
-                )
-                fields.filter { it.group == g }.forEach { FieldEditor(state, it, links, onOpenEntity) }
-            }
+        }
+    }
+    fields.mapNotNull { it.group }.distinct().forEach { g ->
+        GCard(Modifier.testTag("card-group-$g")) {
+            Text(g, style = MaterialTheme.typography.titleMedium, modifier = Modifier.testTag("field-group"))
+            fields.filter { it.group == g }.forEach { FieldEditor(state, it, links, onOpenEntity) }
         }
     }
 }
 
 /** Chapters that cast this entity. Managed from the chapter side; rows jump straight there. */
 @Composable
-private fun AppearancesPanel(state: EntityEditorState, onOpenChapter: (String, String) -> Unit) {
+private fun AppearancesCard(state: EntityEditorState, onOpenChapter: (String, String) -> Unit) {
     val rows by state.appearances.collectAsState(initial = emptyList())
     if (rows.isEmpty()) return
 
-    Column(verticalArrangement = Arrangement.spacedBy(4.dp)) {
-        Text("Appears in", style = MaterialTheme.typography.titleMedium)
+    GCard(Modifier.testTag("card-appears"), title = "Appears in") {
         rows.forEach { a ->
-            Text(
-                "${a.work_title} — ${a.chapter_title ?: "Untitled chapter"}",
-                fontWeight = FontWeight.SemiBold,
-                modifier = Modifier.testTag("appearance-link").clickable { onOpenChapter(a.work_id, a.chapter_id) },
+            ListRow(
+                a.work_title, { onOpenChapter(a.work_id, a.chapter_id) },
+                Modifier.testTag("appearance-link"), secondary = a.chapter_title ?: "Untitled chapter",
             )
         }
     }
@@ -157,28 +158,23 @@ private fun AppearancesPanel(state: EntityEditorState, onOpenChapter: (String, S
  * Per-work / per-continuity overrides of this entity. Blank override fields inherit canon.
  * The schema allows one live variant per scope; the work picker hides already-used works.
  */
-@OptIn(ExperimentalMaterial3Api::class)
 @Composable
-private fun VariantsPanel(state: EntityEditorState) {
+private fun VariantsCard(state: EntityEditorState) {
     val rows by state.variants.collectAsState(initial = emptyList())
     val workOptions by state.workOptions.collectAsState(initial = emptyList())
 
-    Column(verticalArrangement = Arrangement.spacedBy(6.dp)) {
-        HorizontalDivider(Modifier.padding(vertical = 4.dp))
-        Text("Variants", style = MaterialTheme.typography.titleMedium)
-        if (rows.isEmpty()) Text("Canon everywhere — no overrides yet.", style = MaterialTheme.typography.bodySmall)
+    GCard(
+        Modifier.testTag("card-variants"), title = "Variants",
+        caption = if (rows.isEmpty()) "Canon everywhere — no overrides yet." else null,
+    ) {
         rows.forEach { v ->
             val editing = state.variantEditor?.id == v.id
-            Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                Text(
-                    v.work_title?.let { "In “$it”" } ?: "AU: ${v.continuity_key}",
-                    style = MaterialTheme.typography.bodyMedium,
-                )
-                v.name_override?.let { Text("as “$it”", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.outline) }
-                TextButton(onClick = { if (editing) state.closeVariant() else state.openVariant(v.id) }) {
-                    Text(if (editing) "Done" else "Edit")
-                }
-                TextButton(onClick = { state.removeVariant(v.id) }) { Text("Remove") }
+            Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(Space.sm)) {
+                Text(v.work_title?.let { "In “$it”" } ?: "AU: ${v.continuity_key}", style = MaterialTheme.typography.bodyMedium)
+                v.name_override?.let { Text("as “$it”", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.grimoire.muted) }
+                Box(Modifier.weight(1f))
+                GButton(if (editing) "Done" else "Edit", { if (editing) state.closeVariant() else state.openVariant(v.id) }, kind = ButtonKind.QUIET)
+                GButton("Remove", { state.removeVariant(v.id) }, kind = ButtonKind.QUIET)
             }
             if (editing) state.variantEditor?.let { ed -> VariantFields(ed) }
         }
@@ -189,91 +185,49 @@ private fun VariantsPanel(state: EntityEditorState) {
 @Composable
 private fun VariantFields(ed: VariantEditorState) {
     if (!ed.loaded) return
-    Column(Modifier.padding(start = 16.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
-        OutlinedTextField(
-            ed.nameOverride, ed::editNameOverride,
-            label = { Text("Name override (blank = canon)") }, singleLine = true,
-            modifier = Modifier.fillMaxWidth(),
-        )
-        OutlinedTextField(
-            ed.summaryOverride, ed::editSummaryOverride,
-            label = { Text("Summary override") }, minLines = 2,
-            modifier = Modifier.fillMaxWidth(),
-        )
-        OutlinedTextField(
-            ed.bodyOverride, ed::editBodyOverride,
-            label = { Text("Notes override") }, minLines = 4,
-            modifier = Modifier.fillMaxWidth(),
-        )
+    Column(Modifier.padding(start = Space.lg), verticalArrangement = Arrangement.spacedBy(Space.sm)) {
+        GField(ed.nameOverride, ed::editNameOverride, Modifier.fillMaxWidth(), label = "Name override (blank = canon)")
+        GTextArea(ed.summaryOverride, ed::editSummaryOverride, Modifier.fillMaxWidth(), label = "Summary override", minLines = 2)
+        GTextArea(ed.bodyOverride, ed::editBodyOverride, Modifier.fillMaxWidth(), label = "Notes override", minLines = 4)
         if (ed.patchKeys.isNotEmpty()) {
-            Text("Attribute overrides (blank = inherit)", style = MaterialTheme.typography.labelLarge)
+            SectionLabel("Attribute overrides (blank = inherit)")
             ed.patchKeys.forEach { key ->
-                OutlinedTextField(
-                    ed.patch[key].orEmpty(), { v -> ed.editPatch(key, v) },
-                    label = { Text(key) },
-                    placeholder = { ed.parentAttributes[key]?.let { Text(it, color = MaterialTheme.colorScheme.outline) } },
-                    singleLine = true,
-                    modifier = Modifier.fillMaxWidth(),
+                GField(
+                    ed.patch[key].orEmpty(), { v -> ed.editPatch(key, v) }, Modifier.fillMaxWidth(),
+                    label = key, placeholder = ed.parentAttributes[key],
                 )
             }
         }
     }
 }
 
-@OptIn(ExperimentalMaterial3Api::class)
 @Composable
 private fun AddVariantForm(state: EntityEditorState, alreadyUsedWorkIds: Set<String>, works: List<Pair<String, String>>) {
-    var workMenuOpen by remember { mutableStateOf(false) }
     var continuity by remember { mutableStateOf("") }
     val available = works.filter { it.first !in alreadyUsedWorkIds }
 
-    Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-        ExposedDropdownMenuBox(expanded = workMenuOpen, onExpandedChange = { workMenuOpen = it }, modifier = Modifier.width(240.dp)) {
-            OutlinedTextField(
-                value = "", onValueChange = {}, readOnly = true, singleLine = true,
-                label = { Text("New variant for work…") },
-                trailingIcon = { ExposedDropdownMenuDefaults.TrailingIcon(workMenuOpen) },
-                modifier = Modifier.menuAnchor(ExposedDropdownMenuAnchorType.PrimaryNotEditable),
-            )
-            ExposedDropdownMenu(expanded = workMenuOpen, onDismissRequest = { workMenuOpen = false }) {
-                if (available.isEmpty()) DropdownMenuItem(text = { Text("No works without a variant") }, onClick = { workMenuOpen = false })
-                available.forEach { (id, title) ->
-                    DropdownMenuItem(text = { Text(title) }, onClick = { state.addVariant(id, null); workMenuOpen = false })
-                }
+    Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(Space.sm)) {
+        GSelect("New variant for work…", Modifier.weight(1f)) { close ->
+            if (available.isEmpty()) DropdownMenuItem(text = { Text("No works without a variant") }, onClick = close)
+            available.forEach { (id, title) ->
+                DropdownMenuItem(text = { Text(title) }, onClick = { state.addVariant(id, null); close() })
             }
         }
-        OutlinedTextField(
-            continuity, { continuity = it },
-            label = { Text("…or continuity key") }, singleLine = true,
-            modifier = Modifier.width(200.dp),
-        )
-        Button(
-            enabled = continuity.isNotBlank(),
-            onClick = { state.addVariant(null, continuity.trim()); continuity = "" },
-        ) { Text("Add AU") }
+        GField(continuity, { continuity = it }, Modifier.weight(1f), placeholder = "…or continuity key")
+        GButton("Add AU", { state.addVariant(null, continuity.trim()); continuity = "" }, enabled = continuity.isNotBlank())
     }
 }
 
 /** Files a user-authored entity under one of the world's named sources. */
-@OptIn(ExperimentalMaterial3Api::class)
 @Composable
-private fun SourceAssignRow(state: EntityEditorState) {
+private fun SourceAssignSelect(state: EntityEditorState, modifier: Modifier) {
     val options by state.sourceOptions.collectAsState(initial = emptyList())
-    var open by remember { mutableStateOf(false) }
     val current = options.firstOrNull { it.id == state.assignedSourceId }
 
-    ExposedDropdownMenuBox(expanded = open, onExpandedChange = { open = it }, modifier = Modifier.width(320.dp)) {
-        OutlinedTextField(
-            value = current?.label ?: "…",
-            onValueChange = {}, readOnly = true, singleLine = true,
-            label = { Text("Source") },
-            trailingIcon = { ExposedDropdownMenuDefaults.TrailingIcon(open) },
-            modifier = Modifier.menuAnchor(ExposedDropdownMenuAnchorType.PrimaryNotEditable),
-        )
-        ExposedDropdownMenu(expanded = open, onDismissRequest = { open = false }) {
-            options.forEach { s ->
-                DropdownMenuItem(text = { Text(s.label) }, onClick = { state.assignSource(s.id); open = false })
-            }
+    GSelect(current?.label ?: "…", modifier, label = "Source") { close ->
+        options.forEach { s ->
+            DropdownMenuItem(text = { Text(s.label) }, onClick = { state.assignSource(s.id); close() })
         }
     }
 }
+

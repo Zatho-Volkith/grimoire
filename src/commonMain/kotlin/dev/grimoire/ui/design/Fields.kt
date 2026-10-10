@@ -29,6 +29,7 @@ import androidx.compose.ui.graphics.SolidColor
 import androidx.compose.ui.input.key.KeyEvent
 import androidx.compose.ui.input.key.onPreviewKeyEvent
 import androidx.compose.ui.semantics.semantics
+import androidx.compose.ui.text.TextStyle
 import androidx.compose.ui.text.input.TextFieldValue
 import androidx.compose.ui.unit.dp
 
@@ -47,14 +48,16 @@ fun GField(
     minLines: Int = 1,
     trailing: (@Composable () -> Unit)? = null,
     onPreviewKeyEvent: ((KeyEvent) -> Boolean)? = null,
+    textStyle: TextStyle? = null,
+    fieldModifier: Modifier = Modifier,
 ) {
     val interaction = remember { MutableInteractionSource() }
     FieldLabel(modifier, label) {
         BasicTextField(
             value, onValueChange,
-            modifier = fieldModifier(onPreviewKeyEvent),
+            modifier = fieldModifier(fieldModifier, onPreviewKeyEvent),
             singleLine = singleLine, readOnly = readOnly, minLines = if (singleLine) 1 else minLines,
-            textStyle = MaterialTheme.typography.bodyMedium.copy(color = MaterialTheme.colorScheme.onSurface),
+            textStyle = (textStyle ?: MaterialTheme.typography.bodyMedium).copy(color = MaterialTheme.colorScheme.onSurface),
             cursorBrush = SolidColor(MaterialTheme.colorScheme.primary),
             interactionSource = interaction,
             decorationBox = { field -> FieldDecoration(value.isEmpty(), placeholder ?: label, interaction, trailing, field) },
@@ -75,14 +78,16 @@ fun GField(
     minLines: Int = 1,
     trailing: (@Composable () -> Unit)? = null,
     onPreviewKeyEvent: ((KeyEvent) -> Boolean)? = null,
+    textStyle: TextStyle? = null,
+    fieldModifier: Modifier = Modifier,
 ) {
     val interaction = remember { MutableInteractionSource() }
     FieldLabel(modifier, label) {
         BasicTextField(
             value, onValueChange,
-            modifier = fieldModifier(onPreviewKeyEvent),
+            modifier = fieldModifier(fieldModifier, onPreviewKeyEvent),
             singleLine = singleLine, readOnly = readOnly, minLines = if (singleLine) 1 else minLines,
-            textStyle = MaterialTheme.typography.bodyMedium.copy(color = MaterialTheme.colorScheme.onSurface),
+            textStyle = (textStyle ?: MaterialTheme.typography.bodyMedium).copy(color = MaterialTheme.colorScheme.onSurface),
             cursorBrush = SolidColor(MaterialTheme.colorScheme.primary),
             interactionSource = interaction,
             decorationBox = { field -> FieldDecoration(value.text.isEmpty(), placeholder ?: label, interaction, trailing, field) },
@@ -123,10 +128,11 @@ fun GTextArea(
     minLines: Int = 3,
 ) = GField(value, onValueChange, modifier, label, placeholder, singleLine = false, minLines = minLines)
 
-// Merging descendants puts the in-field hint into the editable node's semantics, so tests (and screen
-// readers) see an empty field by its label, as they did with Material's floating label.
-private fun fieldModifier(onKey: ((KeyEvent) -> Boolean)?): Modifier =
-    Modifier.fillMaxWidth().semantics(mergeDescendants = true) {}
+// The editable node is its own semantics boundary; merging into it puts the in-field hint in its
+// semantics, so an empty field is found by its label, as with Material's floating label. Tags, focus
+// requesters and key handlers that must reach the editable node go in [extra] (GField's fieldModifier).
+private fun fieldModifier(extra: Modifier, onKey: ((KeyEvent) -> Boolean)?): Modifier =
+    Modifier.fillMaxWidth().then(extra).semantics(mergeDescendants = true) {}
         .let { m -> onKey?.let { m.onPreviewKeyEvent(it) } ?: m }
 
 @Composable

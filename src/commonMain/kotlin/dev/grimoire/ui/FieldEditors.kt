@@ -1,6 +1,5 @@
 package dev.grimoire.ui
 
-import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -11,15 +10,8 @@ import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.width
 import androidx.compose.material3.DropdownMenu
 import androidx.compose.material3.DropdownMenuItem
-import androidx.compose.material3.ExperimentalMaterial3Api
-import androidx.compose.material3.ExposedDropdownMenuAnchorType
-import androidx.compose.material3.ExposedDropdownMenuBox
-import androidx.compose.material3.ExposedDropdownMenuDefaults
-import androidx.compose.material3.InputChip
 import androidx.compose.material3.MaterialTheme
-import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Text
-import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
@@ -34,23 +26,28 @@ import androidx.compose.ui.unit.dp
 import dev.grimoire.db.LinksFor
 import dev.grimoire.template.FieldType
 import dev.grimoire.template.TemplateField
+import dev.grimoire.ui.design.ButtonKind
+import dev.grimoire.ui.design.GButton
+import dev.grimoire.ui.design.GChip
+import dev.grimoire.ui.design.GField
+import dev.grimoire.ui.design.GTextArea
+import dev.grimoire.ui.design.Space
+import dev.grimoire.ui.design.grimoire
 
 /** One template field, rendered by type, followed by its "from X" autofill note when it has one. */
 @Composable
 fun FieldEditor(state: EntityEditorState, field: TemplateField, links: List<LinksFor>, onOpenEntity: (String) -> Unit) {
-    Column(verticalArrangement = Arrangement.spacedBy(4.dp)) {
+    Column(verticalArrangement = Arrangement.spacedBy(Space.xs)) {
         when {
             field.type == FieldType.LINK && field.link != null -> LinkFieldEditor(state, field, links, onOpenEntity)
-            field.type == FieldType.LONG -> OutlinedTextField(
+            field.type == FieldType.LONG -> GTextArea(
                 state.attributes[field.key].orEmpty(), { state.editAttribute(field.key, it) },
-                label = { Text(field.label) }, minLines = 3,
-                modifier = Modifier.fillMaxWidth(),
+                Modifier.fillMaxWidth(), label = field.label,
             )
             field.options.isNotEmpty() -> OptionsField(state, field)
-            else -> OutlinedTextField(
+            else -> GField(
                 state.attributes[field.key].orEmpty(), { state.editAttribute(field.key, it) },
-                label = { Text(field.label) }, singleLine = true,
-                modifier = Modifier.fillMaxWidth(),
+                Modifier.fillMaxWidth(), label = field.label,
             )
         }
         AutofillNote(state, field)
@@ -63,30 +60,25 @@ private fun AutofillNote(state: EntityEditorState, field: TemplateField) {
         Text(
             "from $from",
             style = MaterialTheme.typography.labelSmall,
-            color = MaterialTheme.colorScheme.outline,
+            color = MaterialTheme.grimoire.muted,
             modifier = Modifier.testTag("autofill-note"),
         )
     }
 }
 
 /** Single-line text with an editable dropdown of the field's options; any typed value is allowed. */
-@OptIn(ExperimentalMaterial3Api::class)
 @Composable
 private fun OptionsField(state: EntityEditorState, field: TemplateField) {
     var open by remember { mutableStateOf(false) }
     val text = state.attributes[field.key].orEmpty()
     val shown = field.options.filter { it.contains(text.trim(), ignoreCase = true) }
 
-    ExposedDropdownMenuBox(expanded = open && shown.isNotEmpty(), onExpandedChange = { open = it }, modifier = Modifier.fillMaxWidth()) {
-        OutlinedTextField(
-            value = text,
-            onValueChange = { state.editAttribute(field.key, it); open = true },
-            singleLine = true,
-            label = { Text(field.label) },
-            trailingIcon = { ExposedDropdownMenuDefaults.TrailingIcon(open) },
-            modifier = Modifier.fillMaxWidth().menuAnchor(ExposedDropdownMenuAnchorType.PrimaryEditable),
+    Box(Modifier.fillMaxWidth()) {
+        GField(
+            text, { state.editAttribute(field.key, it); open = true }, Modifier.fillMaxWidth(), label = field.label,
+            trailing = { GButton("▾", { open = !open }, kind = ButtonKind.QUIET) },
         )
-        ExposedDropdownMenu(expanded = open && shown.isNotEmpty(), onDismissRequest = { open = false }) {
+        DropdownMenu(expanded = open && shown.isNotEmpty(), onDismissRequest = { open = false }) {
             shown.forEach { o ->
                 DropdownMenuItem(text = { Text(o) }, onClick = { state.editAttribute(field.key, o); open = false })
             }
@@ -107,40 +99,26 @@ fun LinkFieldEditor(state: EntityEditorState, field: TemplateField, links: List<
     // Re-checked as the text changes and when links change (a just-linked target stops matching).
     LaunchedEffect(text, links) { matchId = state.exactMatch(field, text) }
 
-    Column(verticalArrangement = Arrangement.spacedBy(4.dp)) {
-        FlowRow(horizontalArrangement = Arrangement.spacedBy(8.dp), verticalArrangement = Arrangement.spacedBy(4.dp)) {
-            mine.forEach { l ->
-                InputChip(
-                    selected = false,
-                    onClick = { onOpenEntity(l.other_id) },
-                    label = { Text(l.other_name) },
-                    trailingIcon = {
-                        Text(
-                            "✕", color = MaterialTheme.colorScheme.error,
-                            modifier = Modifier.clickable { state.removeLink(l.id, field) },
-                        )
-                    },
-                    modifier = Modifier.testTag("link-chip"),
-                )
-            }
+    Column(verticalArrangement = Arrangement.spacedBy(Space.xs)) {
+        Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(Space.sm)) {
+            Text(field.label, style = MaterialTheme.typography.labelMedium, color = MaterialTheme.grimoire.muted)
             LinkSearchButton(state, field)
         }
-        LinkTextRow(text, field, state, matchId?.takeIf { id -> mine.none { it.other_id == id } })
-    }
-}
-
-@Composable
-private fun LinkTextRow(text: String, field: TemplateField, state: EntityEditorState, matchId: String?) {
-    Row(
-        Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically,
-        horizontalArrangement = Arrangement.spacedBy(8.dp),
-    ) {
-        OutlinedTextField(
-            text, { state.editAttribute(field.key, it) },
-            label = { Text(field.label) }, singleLine = true,
-            modifier = Modifier.weight(1f),
-        )
-        if (matchId != null) TextButton(onClick = { state.addLink(field, matchId) }) { Text("Link") }
+        if (mine.isNotEmpty()) {
+            FlowRow(horizontalArrangement = Arrangement.spacedBy(Space.sm), verticalArrangement = Arrangement.spacedBy(Space.xs)) {
+                mine.forEach { l ->
+                    GChip(
+                        l.other_name, Modifier.testTag("link-chip"),
+                        onClick = { onOpenEntity(l.other_id) }, onRemove = { state.removeLink(l.id, field) },
+                    )
+                }
+            }
+        }
+        Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(Space.sm)) {
+            GField(text, { state.editAttribute(field.key, it) }, Modifier.weight(1f), placeholder = field.label)
+            val match = matchId?.takeIf { id -> mine.none { it.other_id == id } }
+            if (match != null) GButton("Link", { state.addLink(field, match) }, kind = ButtonKind.QUIET)
+        }
     }
 }
 
@@ -149,13 +127,9 @@ private fun LinkSearchButton(state: EntityEditorState, field: TemplateField) {
     var open by remember { mutableStateOf(false) }
     var query by remember { mutableStateOf("") }
     Box {
-        TextButton(onClick = { open = true }, modifier = Modifier.testTag("link-add-${field.key}")) { Text("+") }
+        GButton("+", { open = true }, Modifier.testTag("link-add-${field.key}"), kind = ButtonKind.QUIET)
         DropdownMenu(expanded = open, onDismissRequest = { open = false; query = "" }) {
-            OutlinedTextField(
-                query, { query = it },
-                label = { Text("Search ${field.label}") }, singleLine = true,
-                modifier = Modifier.width(260.dp).testTag("link-search"),
-            )
+            GField(query, { query = it }, Modifier.width(260.dp), placeholder = "Search ${field.label}", fieldModifier = Modifier.testTag("link-search"))
             val results by remember(query) { state.linkTargets(field, query) }.collectAsState(initial = emptyList())
             results.forEach { e ->
                 DropdownMenuItem(
