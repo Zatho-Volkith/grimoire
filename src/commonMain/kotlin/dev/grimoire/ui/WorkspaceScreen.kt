@@ -264,13 +264,14 @@ private fun TrashSection(ws: WorkspaceState) {
     val templates by ws.trashTemplates.collectAsState(initial = emptyList())
     val empty = entities.isEmpty() && works.isEmpty() && chapters.isEmpty() && events.isEmpty() && templates.isEmpty()
 
-    LazyColumn(Modifier.fillMaxSize().background(MaterialTheme.colorScheme.surface).padding(16.dp)) {
-        item { Text("Trash", style = MaterialTheme.typography.headlineSmall, modifier = Modifier.padding(bottom = 4.dp)) }
+    LazyColumn(
+        Modifier.fillMaxSize().background(MaterialTheme.colorScheme.surface).padding(horizontal = Space.xl),
+        verticalArrangement = Arrangement.spacedBy(Space.lg),
+    ) {
         item {
-            Text(
-                if (empty) "Trash is empty." else "Deleted things wait here until you restore them.",
-                style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.outline,
-                modifier = Modifier.padding(bottom = 8.dp),
+            dev.grimoire.ui.design.PageHeader(
+                "Trash", Modifier.padding(top = Space.xl),
+                subtitle = if (empty) "Trash is empty." else "Deleted things wait here until you restore them.",
             )
         }
         trashGroup("Entities", entities, { it.id }, { it.name }, { EntityType.fromKey(it.type).label }, ws::restoreEntity)
@@ -281,6 +282,7 @@ private fun TrashSection(ws: WorkspaceState) {
     }
 }
 
+/** One card per kind of deleted thing, each row restorable. */
 private fun <T> androidx.compose.foundation.lazy.LazyListScope.trashGroup(
     title: String,
     items: List<T>,
@@ -290,15 +292,13 @@ private fun <T> androidx.compose.foundation.lazy.LazyListScope.trashGroup(
     restore: (String) -> Unit,
 ) {
     if (items.isEmpty()) return
-    item(key = "header-$title") {
-        Text(title, style = MaterialTheme.typography.titleMedium, modifier = Modifier.padding(top = 12.dp, bottom = 4.dp))
-    }
-    items(items, key = key) { t ->
-        Row(Modifier.fillMaxWidth().padding(vertical = 2.dp), verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-            Text(name(t), style = MaterialTheme.typography.bodyLarge)
-            Text(subtitle(t), style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.outline)
-            Spacer(Modifier.weight(1f))
-            GButton("Restore", { restore(key(t)) }, kind = ButtonKind.QUIET)
+    item(key = "group-$title") {
+        dev.grimoire.ui.design.GCard(title = title) {
+            items.forEach { t ->
+                ListRow(name(t), {}, secondary = subtitle(t).ifBlank { null }) {
+                    GButton("Restore", { restore(key(t)) }, kind = ButtonKind.QUIET)
+                }
+            }
         }
     }
 }

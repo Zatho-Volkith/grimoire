@@ -1,5 +1,10 @@
 package dev.grimoire.ui
 
+import dev.grimoire.ui.design.ButtonKind
+import dev.grimoire.ui.design.GButton
+import dev.grimoire.ui.design.GDialog
+import dev.grimoire.ui.design.GField
+import dev.grimoire.ui.design.grimoire
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -11,14 +16,10 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
-import androidx.compose.material3.Button
 import androidx.compose.material3.DropdownMenu
 import androidx.compose.material3.DropdownMenuItem
 import androidx.compose.material3.MaterialTheme
-import androidx.compose.material3.OutlinedTextField
-import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
-import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
@@ -38,7 +39,6 @@ import androidx.compose.ui.input.key.onPreviewKeyEvent
 import androidx.compose.ui.input.key.type
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.unit.dp
-import androidx.compose.ui.window.Dialog
 import androidx.compose.ui.window.DialogProperties
 import dev.grimoire.work.TextChat
 
@@ -51,14 +51,19 @@ fun TextConvoDialog(state: TextConvoState, onSave: () -> Unit, onCancel: () -> U
     var focusKey by remember { mutableStateOf<Int?>(null) }
 
     // A writing surface: only Cancel/Save close it, never a stray click or Escape.
-    Dialog(onDismissRequest = onCancel, properties = DialogProperties(dismissOnBackPress = false, dismissOnClickOutside = false)) {
-        Surface(shape = MaterialTheme.shapes.large, tonalElevation = 4.dp) {
-            Column(Modifier.width(900.dp).height(600.dp).padding(20.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
-                Text("Text conversation", style = MaterialTheme.typography.titleLarge)
+    GDialog(
+        "Text conversation", onDismiss = onCancel, modifier = Modifier.width(900.dp).height(640.dp),
+        properties = DialogProperties(dismissOnBackPress = false, dismissOnClickOutside = false),
+        actions = {
+            GButton("Cancel", onCancel, kind = ButtonKind.QUIET)
+            GButton("Save", onSave, kind = ButtonKind.PRIMARY)
+        },
+    ) {
+            run {
                 Row(horizontalArrangement = Arrangement.spacedBy(12.dp)) {
-                    OutlinedTextField(
-                        state.title, state::editTitle, label = { Text("Chat name") }, singleLine = true,
-                        modifier = Modifier.weight(1f).testTag("convo-title"),
+                    GField(
+                        state.title, state::editTitle, Modifier.weight(1f), label = "Chat name",
+                        fieldModifier = Modifier.testTag("convo-title"),
                     )
                     NameField(state.owner, state::editOwner, "Phone owner", state.senderSuggestions, Modifier.weight(1f), "convo-owner")
                 }
@@ -73,21 +78,16 @@ fun TextConvoDialog(state: TextConvoState, onSave: () -> Unit, onCancel: () -> U
                             }
                         }
                         Row(horizontalArrangement = Arrangement.spacedBy(4.dp)) {
-                            TextButton(onClick = { focusKey = state.addMessage() }) { Text("+ Message") }
-                            TextButton(onClick = { focusKey = state.addReceipt() }) { Text("+ Receipt") }
-                            TextButton(onClick = { focusKey = state.addNotice() }) { Text("+ Notice") }
+                            GButton("+ Message", { focusKey = state.addMessage() }, kind = ButtonKind.QUIET)
+                            GButton("+ Receipt", { focusKey = state.addReceipt() }, kind = ButtonKind.QUIET)
+                            GButton("+ Notice", { focusKey = state.addNotice() }, kind = ButtonKind.QUIET)
                         }
                     }
                     Box(Modifier.weight(1f).fillMaxHeight().verticalScroll(rememberScrollState())) {
                         TextChatView(state.toChat() ?: TextChat(state.title, null, emptyList()))
                     }
                 }
-                Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(8.dp, Alignment.End)) {
-                    TextButton(onClick = onCancel) { Text("Cancel") }
-                    Button(onClick = onSave) { Text("Save") }
-                }
             }
-        }
     }
 }
 
@@ -105,11 +105,12 @@ private fun ConvoRowEditor(state: TextConvoState, row: ConvoRow, index: Int, foc
             RowKind.RECEIPT -> KindLabel("Receipt")
             RowKind.NOTICE -> KindLabel("Notice")
         }
-        OutlinedTextField(
-            row.text, { state.editText(row.key, it) },
+        GField(
+            row.text, { state.editText(row.key, it) }, Modifier.weight(1f),
             singleLine = row.kind != RowKind.MESSAGE,
-            placeholder = { Text(if (row.kind == RowKind.RECEIPT) "Read 2:15 AM" else if (row.kind == RowKind.NOTICE) "Alex added Jordan" else "Message") },
-            modifier = Modifier.weight(1f).focusRequester(requester).testTag("convo-text-$index").onPreviewKeyEvent { e ->
+            placeholder = if (row.kind == RowKind.RECEIPT) "Read 2:15 AM" else if (row.kind == RowKind.NOTICE) "Alex added Jordan" else "Message",
+            fieldModifier = Modifier.focusRequester(requester).testTag("convo-text-$index"),
+            onPreviewKeyEvent = { e ->
                 val enter = e.key == Key.Enter || e.key == Key.NumPadEnter
                 if (row.kind == RowKind.MESSAGE && enter && !e.isShiftPressed) {
                     if (e.type == KeyEventType.KeyDown) onFocusRow(state.addMessage(afterKey = row.key))
@@ -117,16 +118,16 @@ private fun ConvoRowEditor(state: TextConvoState, row: ConvoRow, index: Int, foc
                 } else false
             },
         )
-        TextButton(onClick = { state.move(row.key, -1) }) { Text("↑") }
-        TextButton(onClick = { state.move(row.key, 1) }) { Text("↓") }
-        TextButton(onClick = { state.remove(row.key) }) { Text("✕", color = MaterialTheme.colorScheme.error) }
+        GButton("↑", { state.move(row.key, -1) }, kind = ButtonKind.QUIET)
+        GButton("↓", { state.move(row.key, 1) }, kind = ButtonKind.QUIET)
+        GButton("✕", { state.remove(row.key) }, kind = ButtonKind.QUIET)
     }
 }
 
 @Composable
 private fun KindLabel(text: String) {
     Text(
-        text, style = MaterialTheme.typography.labelLarge, color = MaterialTheme.colorScheme.outline,
+        text, style = MaterialTheme.typography.labelLarge, color = MaterialTheme.grimoire.muted,
         modifier = Modifier.width(150.dp).padding(start = 12.dp),
     )
 }
@@ -136,10 +137,10 @@ private fun KindLabel(text: String) {
 private fun NameField(value: String, onChange: (String) -> Unit, label: String, suggestions: List<String>, modifier: Modifier, tag: String) {
     var open by remember { mutableStateOf(false) }
     Box(modifier) {
-        OutlinedTextField(
-            value, onChange, label = { Text(label) }, singleLine = true,
-            trailingIcon = if (suggestions.isEmpty()) null else ({ TextButton(onClick = { open = true }) { Text("▾") } }),
-            modifier = Modifier.fillMaxWidth().testTag(tag),
+        GField(
+            value, onChange, Modifier.fillMaxWidth(), placeholder = label,
+            trailing = if (suggestions.isEmpty()) null else ({ GButton("▾", { open = true }, kind = ButtonKind.QUIET) }),
+            fieldModifier = Modifier.testTag(tag),
         )
         DropdownMenu(expanded = open, onDismissRequest = { open = false }) {
             suggestions.forEach { name ->

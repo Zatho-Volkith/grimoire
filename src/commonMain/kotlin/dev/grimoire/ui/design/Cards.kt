@@ -19,6 +19,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.window.Dialog
+import androidx.compose.ui.window.DialogProperties
 
 private val cardShape = RoundedCornerShape(Radius.card)
 
@@ -75,13 +76,15 @@ fun StatTile(value: String, label: String, modifier: Modifier = Modifier) {
 fun GDialog(
     title: String,
     onDismiss: () -> Unit,
+    modifier: Modifier = Modifier,
     caption: String? = null,
+    properties: DialogProperties = DialogProperties(),
     actions: @Composable RowScope.() -> Unit = {},
     content: @Composable ColumnScope.() -> Unit,
 ) {
-    Dialog(onDismissRequest = onDismiss) {
+    Dialog(onDismissRequest = onDismiss, properties = properties) {
         Column(
-            Modifier.widthIn(min = 360.dp, max = 900.dp)
+            modifier.widthIn(min = 360.dp, max = 900.dp)
                 .background(MaterialTheme.grimoire.card, cardShape)
                 .border(1.dp, MaterialTheme.grimoire.border, cardShape)
                 .padding(Space.xl),

@@ -14,7 +14,12 @@ import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
-import androidx.compose.material3.TextButton
+import androidx.compose.foundation.BorderStroke
+import androidx.compose.foundation.shape.RoundedCornerShape
+import dev.grimoire.ui.design.ButtonKind
+import dev.grimoire.ui.design.GButton
+import dev.grimoire.ui.design.Radius
+import dev.grimoire.ui.design.grimoire
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.remember
 import androidx.compose.ui.Alignment
@@ -54,7 +59,7 @@ fun CanonDiffDialog(state: EntityEditorState) {
     }
 
     Dialog(onDismissRequest = state::closeCanonDiff) {
-        Surface(shape = MaterialTheme.shapes.large, tonalElevation = 4.dp) {
+        Surface(color = MaterialTheme.grimoire.card, shape = RoundedCornerShape(Radius.card), border = BorderStroke(1.dp, MaterialTheme.grimoire.border)) {
             Column(
                 Modifier.width(760.dp).heightIn(max = 640.dp).padding(20.dp),
                 verticalArrangement = Arrangement.spacedBy(12.dp),
@@ -73,7 +78,7 @@ fun CanonDiffDialog(state: EntityEditorState) {
                                 LabeledLine("Canon", row.canonValue)
                                 LabeledLine("Yours", row.userValue)
                             }
-                            HorizontalDivider()
+                            HorizontalDivider(color = MaterialTheme.grimoire.border)
                         }
                         longFields.forEach { field ->
                             val hunks = remember(field.canonValue, field.userValue) {
@@ -98,12 +103,12 @@ fun CanonDiffDialog(state: EntityEditorState) {
                                     }
                                 }
                             }
-                            HorizontalDivider()
+                            HorizontalDivider(color = MaterialTheme.grimoire.border)
                         }
                     }
                 }
                 Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.End) {
-                    TextButton(onClick = state::closeCanonDiff) { Text("Done — keep the rest as mine") }
+                    GButton("Done — keep the rest as mine", state::closeCanonDiff, kind = ButtonKind.PRIMARY)
                 }
             }
         }
@@ -114,7 +119,7 @@ fun CanonDiffDialog(state: EntityEditorState) {
 private fun FieldHeader(title: String, take: () -> Unit) {
     Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
         Text(title, Modifier.weight(1f), style = MaterialTheme.typography.titleSmall, fontWeight = FontWeight.SemiBold)
-        TextButton(onClick = take) { Text("Take canon") }
+        GButton("Take canon", take, kind = ButtonKind.QUIET)
     }
 }
 
