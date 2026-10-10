@@ -1,5 +1,6 @@
 package dev.grimoire.ui
 
+import dev.grimoire.ui.design.TypingMenuProperties
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
@@ -107,7 +108,7 @@ private fun GroupPicker(state: TemplateEditorState, f: TemplateField) {
             query, { state.editFieldGroup(f.key, it); open = true }, placeholder = "Group",
             fieldModifier = Modifier.testTag("field-group-${f.key}"),
         )
-        DropdownMenu(expanded = open && shown.isNotEmpty(), onDismissRequest = { open = false }) {
+        DropdownMenu(expanded = open && shown.isNotEmpty(), onDismissRequest = { open = false }, properties = TypingMenuProperties) {
             shown.forEach { g -> DropdownMenuItem(text = { Text(g) }, onClick = { state.editFieldGroup(f.key, g); open = false }) }
         }
     }

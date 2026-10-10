@@ -37,6 +37,9 @@ fun interface IconLoader {
 
 val LocalIconLoader: ProvidableCompositionLocal<IconLoader> = staticCompositionLocalOf { IconLoader { null } }
 
+/** (fill, letter) colours for the placeholder square. */
+fun placeholderColors(tint: Color): Pair<Color, Color> = tint.copy(alpha = 0.18f) to tint
+
 /** The slot's artwork tinted to [tint], or — until artwork exists — its initial in a soft rounded square. */
 @Composable
 fun GrimoireIcon(
@@ -53,12 +56,12 @@ fun GrimoireIcon(
     } else {
         Box(tagged, contentAlignment = Alignment.Center) {
             Box(
-                Modifier.size(size).background(MaterialTheme.grimoire.selected, RoundedCornerShape(6.dp)),
+                Modifier.size(size).background(placeholderColors(tint).first, RoundedCornerShape(6.dp)),
                 contentAlignment = Alignment.Center,
             ) {
                 Text(
                     slot.name.first().toString(),
-                    color = MaterialTheme.colorScheme.primary,
+                    color = placeholderColors(tint).second,
                     fontSize = (size.value * 0.55f).sp,
                     fontWeight = FontWeight.SemiBold,
                     modifier = Modifier.testTag("icon-placeholder"),

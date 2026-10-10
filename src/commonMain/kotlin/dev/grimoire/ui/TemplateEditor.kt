@@ -55,7 +55,7 @@ fun TemplateEditor(state: TemplateEditorState, onDelete: () -> Unit) {
                 subtitle = "${state.entityType.label} template",
             ) {
                 Text(if (state.dirty) "Unsaved" else "Saved", style = MaterialTheme.typography.labelMedium, color = MaterialTheme.grimoire.muted)
-                GButton("Delete", onDelete, kind = ButtonKind.QUIET)
+                GButton("Delete", onDelete, kind = ButtonKind.DANGER)
             }
 
             GCard(

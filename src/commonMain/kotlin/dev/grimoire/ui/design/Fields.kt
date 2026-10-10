@@ -8,6 +8,7 @@ import androidx.compose.material3.DropdownMenu
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.semantics.Role
+import androidx.compose.ui.window.PopupProperties
 import androidx.compose.foundation.interaction.MutableInteractionSource
 import androidx.compose.foundation.interaction.collectIsFocusedAsState
 import androidx.compose.foundation.layout.Arrangement
@@ -35,6 +36,13 @@ import androidx.compose.ui.text.input.TextFieldValue
 import androidx.compose.ui.unit.dp
 
 private val fieldShape = RoundedCornerShape(Radius.field)
+
+/** Popup settings for menus that open while the user types (option and group suggestions): never take focus. */
+val TypingMenuProperties = PopupProperties(focusable = false)
+
+/** In-field hint colour (placeholders). */
+// The accent-tinted muted role: legible on fields in every theme (see ThemeTokensTest), distinct from typed text.
+fun hintColor(scheme: androidx.compose.material3.ColorScheme, g: GrimoireColors): Color = g.muted.copy(alpha = 0.85f)
 
 /** Filled field. The label sits above; while empty, `placeholder ?: label` shows inside. */
 @Composable
@@ -167,7 +175,7 @@ private fun FieldDecoration(
     ) {
         Box(Modifier.weight(1f)) {
             if (empty && hint != null) {
-                Text(hint, style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.45f))
+                Text(hint, style = MaterialTheme.typography.bodyMedium, color = hintColor(MaterialTheme.colorScheme, MaterialTheme.grimoire))
             }
             field()
         }

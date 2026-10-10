@@ -62,7 +62,7 @@ fun EventEditor(state: EventEditorState, onDelete: () -> Unit, onMove: (Int) -> 
                 Text(if (state.dirty) "Unsaved" else "Saved", style = MaterialTheme.typography.labelMedium, color = MaterialTheme.grimoire.muted)
                 GButton("Move up", { onMove(-1) }, kind = ButtonKind.QUIET)
                 GButton("Move down", { onMove(1) }, kind = ButtonKind.QUIET)
-                GButton("Delete", onDelete, kind = ButtonKind.QUIET)
+                GButton("Delete", onDelete, kind = ButtonKind.DANGER)
             }
             GCard(title = "When") {
                 Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(Space.sm)) {

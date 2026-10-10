@@ -66,7 +66,7 @@ fun WorkEditor(state: WorkEditorState, onDelete: () -> Unit, onOpenEntity: (Stri
                 if (state.dirty || state.chapterEditor?.dirty == true) "Unsaved" else "Saved",
                 style = MaterialTheme.typography.labelMedium, color = MaterialTheme.grimoire.muted,
             )
-            GButton("Delete work", onDelete, kind = ButtonKind.QUIET)
+            GButton("Delete work", onDelete, kind = ButtonKind.DANGER)
         }
         GTextArea(state.summary, state::editSummary, Modifier.fillMaxWidth(), label = "Summary", minLines = 2)
 
@@ -102,7 +102,10 @@ private fun ChapterPane(ed: ChapterEditorState, work: WorkEditorState, onOpenEnt
 
     Row(Modifier.fillMaxSize(), horizontalArrangement = Arrangement.spacedBy(Space.lg)) {
         GCard(Modifier.weight(1f).fillMaxHeight()) {
-            GField(ed.title, ed::editTitle, Modifier.fillMaxWidth(), placeholder = "Chapter title")
+            Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(Space.sm)) {
+                GField(ed.title, ed::editTitle, Modifier.weight(1f), placeholder = "Chapter title")
+                GButton("Delete", work::deleteOpenChapter, kind = ButtonKind.DANGER)
+            }
             // Writing, export and arrangement actions wrap rather than crowd the title in narrow windows.
             FlowRow(horizontalArrangement = Arrangement.spacedBy(Space.xs), verticalArrangement = Arrangement.spacedBy(Space.xs)) {
                 GButton("Text convo", { ed.openTextConvo(cast.map { it.name }) })
@@ -111,7 +114,6 @@ private fun ChapterPane(ed: ChapterEditorState, work: WorkEditorState, onOpenEnt
                 GButton(if (ed.showPreview) "Hide preview" else "Preview", ed::togglePreview, kind = ButtonKind.QUIET)
                 GButton("Move up", { work.moveOpenChapter(-1) }, kind = ButtonKind.QUIET)
                 GButton("Move down", { work.moveOpenChapter(1) }, kind = ButtonKind.QUIET)
-                GButton("Delete", work::deleteOpenChapter, kind = ButtonKind.QUIET)
             }
             Text("${ed.wordCount} words · Markdown", style = MaterialTheme.typography.labelMedium, color = MaterialTheme.grimoire.muted)
             CastRow(ed, onOpenEntity)

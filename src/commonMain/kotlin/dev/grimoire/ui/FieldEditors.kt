@@ -1,5 +1,6 @@
 package dev.grimoire.ui
 
+import dev.grimoire.ui.design.TypingMenuProperties
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
@@ -43,12 +44,12 @@ fun FieldEditor(state: EntityEditorState, field: TemplateField, links: List<Link
             field.type == FieldType.LINK && field.link != null -> LinkFieldEditor(state, field, links, onOpenEntity)
             field.type == FieldType.LONG -> GTextArea(
                 state.attributes[field.key].orEmpty(), { state.editAttribute(field.key, it) },
-                Modifier.fillMaxWidth(), label = field.label,
+                Modifier.fillMaxWidth(), label = field.label, fieldModifier = Modifier.testTag("field-${field.key}"),
             )
             field.options.isNotEmpty() -> OptionsField(state, field)
             else -> GField(
                 state.attributes[field.key].orEmpty(), { state.editAttribute(field.key, it) },
-                Modifier.fillMaxWidth(), label = field.label,
+                Modifier.fillMaxWidth(), label = field.label, fieldModifier = Modifier.testTag("field-${field.key}"),
             )
         }
         AutofillNote(state, field)
@@ -77,9 +78,10 @@ private fun OptionsField(state: EntityEditorState, field: TemplateField) {
     Box(Modifier.fillMaxWidth()) {
         GField(
             text, { state.editAttribute(field.key, it); open = true }, Modifier.fillMaxWidth(), label = field.label,
+            fieldModifier = Modifier.testTag("field-${field.key}"),
             trailing = { Text("▾", color = MaterialTheme.grimoire.muted, modifier = Modifier.clickable { open = !open }) },
         )
-        DropdownMenu(expanded = open && shown.isNotEmpty(), onDismissRequest = { open = false }) {
+        DropdownMenu(expanded = open && shown.isNotEmpty(), onDismissRequest = { open = false }, properties = TypingMenuProperties) {
             shown.forEach { o ->
                 DropdownMenuItem(text = { Text(o) }, onClick = { state.editAttribute(field.key, o); open = false })
             }

@@ -23,9 +23,17 @@ import androidx.compose.ui.unit.dp
 
 private val pill = RoundedCornerShape(50)
 
-enum class ButtonKind { PRIMARY, SECONDARY, QUIET }
+enum class ButtonKind { PRIMARY, SECONDARY, QUIET, DANGER }
 
-/** Pill button: Primary = solid accent, Secondary = muted fill, Quiet = text only. */
+/** (fill, ink) for a button kind. */
+fun buttonColors(kind: ButtonKind, scheme: androidx.compose.material3.ColorScheme, g: GrimoireColors): Pair<Color, Color> = when (kind) {
+    ButtonKind.PRIMARY -> scheme.primary to scheme.onPrimary
+    ButtonKind.SECONDARY -> g.field to scheme.onSurface
+    ButtonKind.QUIET -> Color.Transparent to scheme.primary
+    ButtonKind.DANGER -> Color.Transparent to scheme.error
+}
+
+/** Pill button: Primary = solid accent, Secondary = muted fill, Quiet = text only, Danger = text in the error colour. */
 @Composable
 fun GButton(
     text: String,
@@ -35,17 +43,13 @@ fun GButton(
     icon: IconSlot? = null,
     enabled: Boolean = true,
 ) {
-    val (fill, ink) = when (kind) {
-        ButtonKind.PRIMARY -> MaterialTheme.colorScheme.primary to MaterialTheme.colorScheme.onPrimary
-        ButtonKind.SECONDARY -> MaterialTheme.grimoire.field to MaterialTheme.colorScheme.onSurface
-        ButtonKind.QUIET -> Color.Transparent to MaterialTheme.colorScheme.primary
-    }
+    val (fill, ink) = buttonColors(kind, MaterialTheme.colorScheme, MaterialTheme.grimoire)
     Row(
         modifier.heightIn(min = 32.dp)
             .alpha(if (enabled) 1f else 0.4f)
             .background(fill, pill)
             .clickable(enabled = enabled, role = Role.Button, onClick = onClick)
-            .padding(horizontal = if (kind == ButtonKind.QUIET) Space.sm else 14.dp, vertical = 6.dp),
+            .padding(horizontal = if (kind == ButtonKind.QUIET || kind == ButtonKind.DANGER) Space.sm else 14.dp, vertical = 6.dp),
         horizontalArrangement = Arrangement.spacedBy(6.dp),
         verticalAlignment = Alignment.CenterVertically,
     ) {

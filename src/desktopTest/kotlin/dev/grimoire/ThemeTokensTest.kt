@@ -2,6 +2,7 @@ package dev.grimoire
 
 import androidx.compose.material3.darkColorScheme
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.compositeOver
 import androidx.compose.ui.graphics.lerp
 import androidx.compose.ui.graphics.luminance
 import androidx.compose.ui.unit.sp
@@ -59,6 +60,18 @@ class ThemeTokensTest {
         AppTheme.entries.forEach { t ->
             val c = contrast(t.extra.muted, t.extra.card)
             assertTrue(c >= 3.0f, "${t.key}: muted on card contrast $c < 3.0")
+        }
+    }
+
+    @Test
+    fun `placeholders stay legible on fields in every theme`() {
+        fun contrast(a: Color, b: Color): Float {
+            val (hi, lo) = listOf(a.luminance(), b.luminance()).sortedDescending()
+            return (hi + 0.05f) / (lo + 0.05f)
+        }
+        AppTheme.entries.forEach { t ->
+            val c = contrast(dev.grimoire.ui.design.hintColor(t.colors, t.extra).compositeOver(t.extra.field), t.extra.field)
+            assertTrue(c >= 3.0f, "${t.key}: placeholder on field contrast $c < 3.0")
         }
     }
 

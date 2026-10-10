@@ -138,6 +138,27 @@ class DesignKitTest {
     }
 
     @Test
+    fun `menus that open while typing never take focus`() {
+        // Option and group fields open their suggestion menu on every keystroke; a focusable popup
+        // would swallow the next keys. Both use this one setting.
+        kotlin.test.assertFalse(dev.grimoire.ui.design.TypingMenuProperties.focusable)
+    }
+
+    @Test
+    fun `danger buttons use the error ink`() {
+        val (_, ink) = dev.grimoire.ui.design.buttonColors(ButtonKind.DANGER, AppTheme.FOREST.colors, AppTheme.FOREST.extra)
+        assertEquals(AppTheme.FOREST.colors.error, ink)
+    }
+
+    @Test
+    fun `icon placeholder follows the content colour`() {
+        val tint = androidx.compose.ui.graphics.Color(0xFF1A1208)
+        val (fill, ink) = dev.grimoire.ui.design.placeholderColors(tint)
+        assertEquals(tint, ink)
+        assertEquals(tint.copy(alpha = 0.18f), fill)
+    }
+
+    @Test
     fun `dialog shows title and dismisses`() {
         var dismissed = false
         themed {

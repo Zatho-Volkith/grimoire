@@ -70,7 +70,7 @@ fun EntityEditor(state: EntityEditorState, onDelete: () -> Unit, onOpenEntity: (
                     if (state.dirty) "Unsaved" else "Saved",
                     style = MaterialTheme.typography.labelMedium, color = MaterialTheme.grimoire.muted,
                 )
-                GButton("Delete", onDelete, kind = ButtonKind.QUIET)
+                GButton("Delete", onDelete, kind = ButtonKind.DANGER)
             }
             if (state.showCanonDiff) CanonDiffDialog(state)
 
