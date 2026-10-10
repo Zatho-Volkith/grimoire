@@ -440,7 +440,7 @@ class WorkspaceScreenTest {
         rule.onNodeWithText("Fic").performClick()
         rule.waitUntil(5_000) { session.workspace?.workEditor?.chapterEditor?.loaded == true }
 
-        rule.onNode(hasSetTextAction() and hasText("Body")).performTextInputSelection(TextRange(body.indexOf("hi")))
+        rule.onNodeWithTag("chapter-body").performTextInputSelection(TextRange(body.indexOf("hi")))
         rule.onNodeWithText("Text convo").performClick()
         rule.onNodeWithTag("convo-title").assertTextContains("Alex")
         rule.onNodeWithTag("convo-text-0").assertTextContains("hi")
@@ -493,6 +493,18 @@ class WorkspaceScreenTest {
         rule.onNodeWithTag("field-row-faction").performScrollTo().performClick()
         rule.waitUntilAtLeastOneExists(hasTestTag("field-detail-faction"), 5_000)
         rule.onAllNodesWithTag("field-detail-race").assertCountEquals(0)
+    }
+
+    @Test
+    fun `world picker uses cards in a narrow column`() {
+        runBlocking { worlds.create("Arda") }
+        rule.setContent {
+            androidx.compose.foundation.layout.Box(androidx.compose.ui.Modifier.requiredSize(1600.dp, 1000.dp)) { App(session) }
+        }
+        rule.waitUntilAtLeastOneExists(hasTestTag("card-create-world"), 5_000)
+        rule.onNodeWithTag("card-your-worlds").assertExists()
+        val width = rule.onNodeWithTag("picker-column").getUnclippedBoundsInRoot().width
+        assertTrue(width <= 640.dp, "picker column is $width wide")
     }
 
     @Test

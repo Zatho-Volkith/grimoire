@@ -5,7 +5,6 @@ import androidx.compose.material3.ColorScheme
 import androidx.compose.material3.DropdownMenu
 import androidx.compose.material3.DropdownMenuItem
 import androidx.compose.material3.Text
-import androidx.compose.material3.TextButton
 import androidx.compose.material3.darkColorScheme
 import androidx.compose.material3.lightColorScheme
 import androidx.compose.runtime.Composable
@@ -14,6 +13,8 @@ import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.graphics.Color
+import dev.grimoire.ui.design.ButtonKind
+import dev.grimoire.ui.design.GButton
 import dev.grimoire.ui.design.GrimoireColors
 import dev.grimoire.ui.design.IconSlot
 import dev.grimoire.ui.design.NavRow
@@ -133,7 +134,7 @@ fun ThemeNavRow(session: Session) {
 fun ThemeMenu(session: Session) {
     var open by remember { mutableStateOf(false) }
     Box {
-        TextButton(onClick = { open = true }) { Text("Theme: ${session.theme.label}") }
+        GButton("Theme: ${session.theme.label}", { open = true }, kind = ButtonKind.QUIET)
         DropdownMenu(expanded = open, onDismissRequest = { open = false }) {
             AppTheme.entries.forEach { t ->
                 DropdownMenuItem(text = { Text(t.label) }, onClick = { session.selectTheme(t); open = false })

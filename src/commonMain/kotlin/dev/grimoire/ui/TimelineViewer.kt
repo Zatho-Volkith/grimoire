@@ -1,6 +1,10 @@
 package dev.grimoire.ui
 
+import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.background
+import androidx.compose.foundation.shape.RoundedCornerShape
+import dev.grimoire.ui.design.Radius
+import dev.grimoire.ui.design.grimoire
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
@@ -128,8 +132,9 @@ private fun EventCard(
     ws: WorkspaceState,
 ) {
     Surface(
-        tonalElevation = 1.dp,
-        shape = MaterialTheme.shapes.medium,
+        color = MaterialTheme.grimoire.card,
+        shape = RoundedCornerShape(Radius.card),
+        border = BorderStroke(1.dp, MaterialTheme.grimoire.border),
         modifier = Modifier.fillMaxWidth()
             .padding(start = 8.dp, end = 8.dp, bottom = 12.dp)
             .testTag("viewer-event")
@@ -142,7 +147,7 @@ private fun EventCard(
             subEvents.forEach { sub ->
                 Column(
                     Modifier.fillMaxWidth().padding(top = 4.dp)
-                        .border(1.dp, MaterialTheme.colorScheme.outlineVariant, MaterialTheme.shapes.small)
+                        .border(1.dp, MaterialTheme.grimoire.border, RoundedCornerShape(Radius.field))
                         .testTag("viewer-subevent")
                         .clickable { ws.editEventFromViewer(sub.id) }
                         .padding(8.dp),
