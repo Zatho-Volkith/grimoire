@@ -1,114 +1,151 @@
 package dev.grimoire.ui
 
 import androidx.compose.foundation.background
-import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.ColumnScope
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxHeight
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
-import androidx.compose.material3.Button
-import androidx.compose.material3.HorizontalDivider
+import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.verticalScroll
+import androidx.compose.material3.DropdownMenuItem
 import androidx.compose.material3.MaterialTheme
-import androidx.compose.material3.NavigationRail
-import androidx.compose.material3.NavigationRailItem
-import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Text
-import androidx.compose.material3.TextButton
-import androidx.compose.material3.VerticalDivider
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.focus.FocusRequester
 import androidx.compose.ui.focus.focusRequester
-import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.platform.testTag
+import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import dev.grimoire.entity.EntityType
+import dev.grimoire.ui.design.ButtonKind
+import dev.grimoire.ui.design.GButton
+import dev.grimoire.ui.design.GField
+import dev.grimoire.ui.design.GSelect
+import dev.grimoire.ui.design.IconSlot
+import dev.grimoire.ui.design.ListRow
+import dev.grimoire.ui.design.NavRow
+import dev.grimoire.ui.design.SectionLabel
+import dev.grimoire.ui.design.Space
+import dev.grimoire.ui.design.Widths
+import dev.grimoire.ui.design.grimoire
 import dev.grimoire.work.WorkStatus
-import androidx.compose.material3.DropdownMenuItem
-import androidx.compose.material3.ExperimentalMaterial3Api
-import androidx.compose.material3.ExposedDropdownMenuAnchorType
-import androidx.compose.material3.ExposedDropdownMenuBox
-import androidx.compose.material3.ExposedDropdownMenuDefaults
-import androidx.compose.runtime.mutableStateOf
-import androidx.compose.runtime.remember
-import androidx.compose.runtime.setValue
 
 @Composable
 fun WorkspaceScreen(session: Session, ws: WorkspaceState) {
     val world by session.worlds.world(ws.worldId).collectAsState(initial = null)
 
-    Column(Modifier.fillMaxSize()) {
-        Row(
-            Modifier.fillMaxWidth().padding(horizontal = 8.dp, vertical = 4.dp),
-            verticalAlignment = Alignment.CenterVertically,
-            horizontalArrangement = Arrangement.spacedBy(8.dp),
-        ) {
-            TextButton(onClick = session::closeWorld) { Text("← Worlds") }
-            Text(world?.name ?: "", style = MaterialTheme.typography.titleLarge)
-            Spacer(Modifier.weight(1f))
-            ws.exportStatus?.let { Text(it, style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.outline) }
-            session.syncStatus.headline?.let { Text(it, style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.outline) }
-            ThemeMenu(session)
-            TextButton(onClick = { ws.exportWorld(world?.name ?: "World") }) { Text("Export") }
+    Row(Modifier.fillMaxSize().background(MaterialTheme.colorScheme.background)) {
+        Sidebar(session, ws, world?.name ?: "")
+        when (ws.section) {
+            WorkspaceSection.ENTITIES -> EntitiesSection(ws)
+            WorkspaceSection.WORKS -> WorksSection(ws)
+            WorkspaceSection.TIMELINE -> TimelineSection(ws)
+            WorkspaceSection.TEMPLATES -> TemplatesSection(ws)
+            WorkspaceSection.TRASH -> TrashSection(ws)
         }
-        HorizontalDivider()
+    }
+}
 
-        Row(Modifier.fillMaxSize()) {
-            NavigationRail {
+private val EntityType.icon: IconSlot
+    get() = when (this) {
+        EntityType.CHARACTER -> IconSlot.CHARACTER
+        EntityType.LOCATION -> IconSlot.LOCATION
+        EntityType.FACTION -> IconSlot.FACTION
+        EntityType.ITEM -> IconSlot.ITEM
+        EntityType.CONCEPT -> IconSlot.CONCEPT
+        EntityType.SYSTEM -> IconSlot.SYSTEM
+    }
+
+@Composable
+private fun Sidebar(session: Session, ws: WorkspaceState, worldName: String) {
+    Column(
+        Modifier.width(Widths.sidebar).fillMaxHeight().testTag("sidebar")
+            .padding(horizontal = Space.md, vertical = Space.lg),
+        verticalArrangement = Arrangement.spacedBy(2.dp),
+    ) {
+        Text(worldName, style = MaterialTheme.typography.titleLarge, maxLines = 2, overflow = TextOverflow.Ellipsis)
+        GButton("← Worlds", session::closeWorld, kind = ButtonKind.QUIET)
+        Spacer(Modifier.height(Space.md))
+
+        Column(Modifier.weight(1f).verticalScroll(rememberScrollState()), verticalArrangement = Arrangement.spacedBy(2.dp)) {
+            NavGroup("World") {
                 EntityType.entries.forEach { t ->
-                    NavigationRailItem(
+                    NavRow(
+                        t.plural, t.icon,
                         selected = ws.section == WorkspaceSection.ENTITIES && ws.type == t && ws.search.isBlank(),
                         onClick = { ws.selectType(t) },
-                        icon = { Text(t.label.take(1), fontWeight = FontWeight.Bold) },
-                        label = { Text(t.plural) },
+                        modifier = Modifier.testTag("nav-" + t.plural.lowercase()),
                     )
                 }
-                NavigationRailItem(
-                    selected = ws.section == WorkspaceSection.WORKS,
-                    onClick = ws::selectWorks,
-                    icon = { Text("W", fontWeight = FontWeight.Bold) },
-                    label = { Text("Works") },
-                )
-                NavigationRailItem(
-                    selected = ws.section == WorkspaceSection.TIMELINE,
-                    onClick = ws::selectTimeline,
-                    icon = { Text("T", fontWeight = FontWeight.Bold) },
-                    label = { Text("Timeline") },
-                )
-                NavigationRailItem(
-                    selected = ws.section == WorkspaceSection.TEMPLATES,
-                    onClick = ws::selectTemplates,
-                    icon = { Text("Tp", fontWeight = FontWeight.Bold) },
-                    label = { Text("Templates") },
-                )
-                NavigationRailItem(
-                    selected = ws.section == WorkspaceSection.TRASH,
-                    onClick = ws::selectTrash,
-                    icon = { Text("🗑", fontWeight = FontWeight.Bold) },
-                    label = { Text("Trash") },
-                )
             }
-            VerticalDivider()
-
-            when (ws.section) {
-                WorkspaceSection.ENTITIES -> EntitiesSection(ws)
-                WorkspaceSection.WORKS -> WorksSection(ws)
-                WorkspaceSection.TIMELINE -> TimelineSection(ws)
-                WorkspaceSection.TEMPLATES -> TemplatesSection(ws)
-                WorkspaceSection.TRASH -> TrashSection(ws)
+            NavGroup("Writing") {
+                NavRow("Works", IconSlot.WORKS, ws.section == WorkspaceSection.WORKS, ws::selectWorks, Modifier.testTag("nav-works"))
+                NavRow("Timeline", IconSlot.TIMELINE, ws.section == WorkspaceSection.TIMELINE, ws::selectTimeline, Modifier.testTag("nav-timeline"))
+            }
+            NavGroup("Manage") {
+                NavRow("Templates", IconSlot.TEMPLATES, ws.section == WorkspaceSection.TEMPLATES, ws::selectTemplates, Modifier.testTag("nav-templates"))
+                NavRow("Trash", IconSlot.TRASH, ws.section == WorkspaceSection.TRASH, ws::selectTrash, Modifier.testTag("nav-trash"))
             }
         }
+
+        ws.exportStatus?.let { StatusLine(it) }
+        session.syncStatus.headline?.let { StatusLine(it) }
+        ThemeNavRow(session)
+        NavRow("Export", IconSlot.EXPORT, selected = false, onClick = { ws.exportWorld(worldName.ifBlank { "World" }) }, modifier = Modifier.testTag("nav-export"))
+    }
+}
+
+@Composable
+private fun NavGroup(label: String, rows: @Composable ColumnScope.() -> Unit) {
+    SectionLabel(label, Modifier.padding(start = Space.sm, top = Space.md, bottom = Space.xs))
+    Column(verticalArrangement = Arrangement.spacedBy(2.dp), content = rows)
+}
+
+@Composable
+private fun StatusLine(text: String) {
+    Text(
+        text, style = MaterialTheme.typography.bodySmall, color = MaterialTheme.grimoire.muted,
+        modifier = Modifier.padding(horizontal = Space.sm, vertical = Space.xs),
+    )
+}
+
+/** The narrow list column every section starts with. */
+@Composable
+private fun ListPane(content: @Composable ColumnScope.() -> Unit) {
+    Column(
+        Modifier.width(Widths.listPane).fillMaxHeight().testTag("list-pane").padding(vertical = Space.lg, horizontal = Space.sm),
+        verticalArrangement = Arrangement.spacedBy(Space.sm),
+        content = content,
+    )
+}
+
+/** The section's main area, a shade apart from the background so panes read without divider lines. */
+@Composable
+private fun ContentArea(empty: String, content: (@Composable () -> Unit)?) {
+    Box(Modifier.fillMaxSize().background(MaterialTheme.colorScheme.surface)) {
+        if (content != null) content()
+        else Text(
+            empty, Modifier.align(Alignment.Center),
+            style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.grimoire.muted,
+        )
     }
 }
 
@@ -118,204 +155,103 @@ private fun EntitiesSection(ws: WorkspaceState) {
     val searchFocus = remember { FocusRequester() }
     LaunchedEffect(ws.focusSearchTick) { if (ws.focusSearchTick > 0) searchFocus.requestFocus() }
 
-    Column(Modifier.width(300.dp).fillMaxHeight().padding(8.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
-        OutlinedTextField(
-            ws.search, ws::searchFor,
-            label = { Text("Search all entities") }, singleLine = true,
-            modifier = Modifier.fillMaxWidth().focusRequester(searchFocus),
-        )
-        Button(onClick = ws::createEntity, modifier = Modifier.fillMaxWidth()) { Text("New ${ws.type.label}") }
-        TextButton(onClick = ws::openWikiImport, modifier = Modifier.fillMaxWidth()) { Text("Import from wiki") }
+    ListPane {
+        GField(ws.search, ws::searchFor, Modifier.fillMaxWidth().focusRequester(searchFocus), placeholder = "Search all entities")
+        GButton("New ${ws.type.label}", ws::createEntity, Modifier.fillMaxWidth(), kind = ButtonKind.PRIMARY, icon = IconSlot.ADD)
+        GButton("Import from wiki", ws::openWikiImport, Modifier.fillMaxWidth(), kind = ButtonKind.QUIET)
         SourceFilterRow(ws)
-        Text(
-            if (ws.search.isBlank()) "${items.size} ${ws.type.plural.lowercase()}" else "${items.size} result(s)",
-            style = MaterialTheme.typography.labelMedium,
-        )
-        LazyColumn(Modifier.fillMaxSize()) {
+        SectionLabel(if (ws.search.isBlank()) "${items.size} ${ws.type.plural.lowercase()}" else "${items.size} result(s)")
+        LazyColumn(Modifier.fillMaxSize(), verticalArrangement = Arrangement.spacedBy(2.dp)) {
             items(items, key = { it.id }) { e ->
-                val selected = ws.editor?.id == e.id
-                Column(
-                    Modifier.fillMaxWidth()
-                        .background(if (selected) MaterialTheme.colorScheme.secondaryContainer else MaterialTheme.colorScheme.surface)
-                        .clickable { ws.open(e.id) }
-                        .padding(horizontal = 8.dp, vertical = 6.dp),
-                ) {
-                    Text(e.name, style = MaterialTheme.typography.bodyLarge)
-                    val sub = if (ws.search.isBlank()) e.summary else EntityType.fromKey(e.type).label
-                    sub?.let { Text(it, style = MaterialTheme.typography.bodySmall, maxLines = 1) }
-                }
+                val sub = if (ws.search.isBlank()) e.summary else EntityType.fromKey(e.type).label
+                ListRow(e.name, { ws.open(e.id) }, secondary = sub, selected = ws.editor?.id == e.id)
             }
         }
     }
     ws.wikiImport?.let { imp -> WikiImportDialog(imp, onDismiss = ws::closeWikiImport) }
     if (ws.showSources) SourcesDialog(ws)
-    VerticalDivider()
 
-    Box(Modifier.fillMaxSize()) {
-        when (val ed = ws.editor) {
-            null -> Text(
-                "Select an entity, or create a new ${ws.type.label.lowercase()}.",
-                Modifier.align(Alignment.Center), style = MaterialTheme.typography.bodyLarge,
-            )
-            else -> EntityEditor(ed, onDelete = ws::deleteOpenEntity, onOpenEntity = ws::open, onOpenChapter = { w, c -> ws.openWork(w, c) })
-        }
-    }
+    ContentArea("Select an entity, or create a new ${ws.type.label.lowercase()}.", ws.editor?.let { ed ->
+        { EntityEditor(ed, onDelete = ws::deleteOpenEntity, onOpenEntity = ws::open, onOpenChapter = { w, c -> ws.openWork(w, c) }) }
+    })
 }
 
 @Composable
 private fun WorksSection(ws: WorkspaceState) {
     val works by ws.workList.collectAsState(initial = emptyList())
-
     val hits by ws.chapterHits.collectAsState(initial = emptyList())
 
-    Column(Modifier.width(300.dp).fillMaxHeight().padding(8.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
-        OutlinedTextField(
-            ws.workSearch, ws::searchChaptersFor,
-            label = { Text("Search all chapters") }, singleLine = true,
-            modifier = Modifier.fillMaxWidth(),
-        )
-        Button(onClick = ws::createWork, modifier = Modifier.fillMaxWidth()) { Text("New Work") }
-        Text(
-            if (ws.workSearch.isBlank()) "${works.size} work(s)" else "${hits.size} chapter hit(s)",
-            style = MaterialTheme.typography.labelMedium,
-        )
-        if (ws.workSearch.isNotBlank()) {
-            LazyColumn(Modifier.fillMaxSize()) {
+    ListPane {
+        GField(ws.workSearch, ws::searchChaptersFor, Modifier.fillMaxWidth(), placeholder = "Search all chapters")
+        GButton("New Work", ws::createWork, Modifier.fillMaxWidth(), kind = ButtonKind.PRIMARY, icon = IconSlot.ADD)
+        SectionLabel(if (ws.workSearch.isBlank()) "${works.size} work(s)" else "${hits.size} chapter hit(s)")
+        LazyColumn(Modifier.fillMaxSize(), verticalArrangement = Arrangement.spacedBy(2.dp)) {
+            if (ws.workSearch.isNotBlank()) {
                 items(hits, key = { it.id }) { hit ->
-                    Column(
-                        Modifier.fillMaxWidth()
-                            .clickable { ws.openWork(hit.work_id, hit.id) }
-                            .padding(horizontal = 8.dp, vertical = 6.dp),
-                    ) {
-                        Text(hit.title ?: "Untitled chapter", style = MaterialTheme.typography.bodyLarge, maxLines = 1)
-                        Text(hit.work_title, style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.outline)
-                    }
+                    ListRow(hit.title ?: "Untitled chapter", { ws.openWork(hit.work_id, hit.id) }, secondary = hit.work_title)
                 }
-            }
-            return@Column
-        }
-        LazyColumn(Modifier.fillMaxSize()) {
-            items(works, key = { it.id }) { w ->
-                val selected = ws.workEditor?.id == w.id
-                Column(
-                    Modifier.fillMaxWidth()
-                        .background(if (selected) MaterialTheme.colorScheme.secondaryContainer else MaterialTheme.colorScheme.surface)
-                        .clickable { ws.openWork(w.id) }
-                        .padding(horizontal = 8.dp, vertical = 6.dp),
-                ) {
-                    Text(w.title, style = MaterialTheme.typography.bodyLarge, maxLines = 1)
-                    Text(WorkStatus.fromKey(w.status).label, style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.outline)
+            } else {
+                items(works, key = { it.id }) { w ->
+                    ListRow(w.title, { ws.openWork(w.id) }, secondary = WorkStatus.fromKey(w.status).label, selected = ws.workEditor?.id == w.id)
                 }
             }
         }
     }
-    VerticalDivider()
 
-    Box(Modifier.fillMaxSize()) {
-        when (val ed = ws.workEditor) {
-            null -> Text(
-                "Select a work, or create a new one.",
-                Modifier.align(Alignment.Center), style = MaterialTheme.typography.bodyLarge,
-            )
-            else -> WorkEditor(ed, onDelete = ws::deleteOpenWork, onOpenEntity = ws::open)
-        }
-    }
+    ContentArea("Select a work, or create a new one.", ws.workEditor?.let { ed ->
+        { WorkEditor(ed, onDelete = ws::deleteOpenWork, onOpenEntity = ws::open) }
+    })
 }
 
 @Composable
 private fun TimelineSection(ws: WorkspaceState) {
     val events by ws.eventList.collectAsState(initial = emptyList())
 
-    Column(Modifier.width(300.dp).fillMaxHeight().padding(8.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
+    ListPane {
         CalendarPicker(ws)
-        Button(onClick = ws::createEvent, modifier = Modifier.fillMaxWidth()) { Text("New Event") }
-        TextButton(onClick = ws::toggleTimelineView, modifier = Modifier.fillMaxWidth()) {
-            Text(if (ws.timelineView) "Back to editing" else "View timeline")
-        }
-        Text("${events.size} event(s)", style = MaterialTheme.typography.labelMedium)
-        LazyColumn(Modifier.fillMaxSize()) {
+        GButton("New Event", ws::createEvent, Modifier.fillMaxWidth(), kind = ButtonKind.PRIMARY, icon = IconSlot.ADD)
+        GButton(if (ws.timelineView) "Back to editing" else "View timeline", ws::toggleTimelineView, Modifier.fillMaxWidth(), kind = ButtonKind.QUIET)
+        SectionLabel("${events.size} event(s)")
+        LazyColumn(Modifier.fillMaxSize(), verticalArrangement = Arrangement.spacedBy(2.dp)) {
             items(events, key = { it.id }) { e ->
-                val selected = ws.eventEditor?.id == e.id
-                Column(
-                    Modifier.fillMaxWidth()
-                        .background(if (selected) MaterialTheme.colorScheme.secondaryContainer else MaterialTheme.colorScheme.surface)
-                        .clickable { ws.openEvent(e.id) }
-                        .padding(horizontal = 8.dp, vertical = 6.dp),
-                ) {
-                    Text(e.title, style = MaterialTheme.typography.bodyLarge, maxLines = 1)
-                    e.display_date?.let { Text(it, style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.outline) }
-                }
+                ListRow(e.title, { ws.openEvent(e.id) }, secondary = e.display_date, selected = ws.eventEditor?.id == e.id)
             }
         }
     }
-    VerticalDivider()
 
-    Box(Modifier.fillMaxSize()) {
-        when {
-            ws.timelineView -> TimelineViewer(ws)
-            else -> when (val ed = ws.eventEditor) {
-                null -> Text(
-                    "Select an event, or create a new one — or View timeline.",
-                    Modifier.align(Alignment.Center), style = MaterialTheme.typography.bodyLarge,
-                )
-                else -> EventEditor(ed, onDelete = ws::deleteOpenEvent, onMove = ws::moveOpenEvent, onOpenEntity = ws::open)
-            }
-        }
+    val main: (@Composable () -> Unit)? = when {
+        ws.timelineView -> { { TimelineViewer(ws) } }
+        else -> ws.eventEditor?.let { ed -> { EventEditor(ed, onDelete = ws::deleteOpenEvent, onMove = ws::moveOpenEvent, onOpenEntity = ws::open) } }
     }
+    ContentArea("Select an event, or create a new one — or View timeline.", main)
 }
 
-@OptIn(ExperimentalMaterial3Api::class)
 @Composable
 private fun TemplatesSection(ws: WorkspaceState) {
     val templates by ws.templateList.collectAsState(initial = emptyList())
-    var typeMenuOpen by remember { mutableStateOf(false) }
 
-    Column(Modifier.width(300.dp).fillMaxHeight().padding(8.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
-        ExposedDropdownMenuBox(expanded = typeMenuOpen, onExpandedChange = { typeMenuOpen = it }) {
-            OutlinedTextField(
-                value = ws.templateType.label,
-                onValueChange = {}, readOnly = true, singleLine = true,
-                label = { Text("For entity type") },
-                trailingIcon = { ExposedDropdownMenuDefaults.TrailingIcon(typeMenuOpen) },
-                modifier = Modifier.fillMaxWidth().menuAnchor(ExposedDropdownMenuAnchorType.PrimaryNotEditable),
-            )
-            ExposedDropdownMenu(expanded = typeMenuOpen, onDismissRequest = { typeMenuOpen = false }) {
-                EntityType.entries.forEach { t ->
-                    DropdownMenuItem(text = { Text(t.label) }, onClick = { ws.selectTemplateType(t); typeMenuOpen = false })
-                }
+    ListPane {
+        GSelect(ws.templateType.label, Modifier.fillMaxWidth(), label = "For entity type") { close ->
+            EntityType.entries.forEach { t ->
+                DropdownMenuItem(text = { Text(t.label) }, onClick = { ws.selectTemplateType(t); close() })
             }
         }
-        Button(onClick = ws::createTemplate, modifier = Modifier.fillMaxWidth()) { Text("New Template") }
-        Text("${templates.size} template(s)", style = MaterialTheme.typography.labelMedium)
-        LazyColumn(Modifier.fillMaxSize()) {
+        GButton("New Template", ws::createTemplate, Modifier.fillMaxWidth(), kind = ButtonKind.PRIMARY, icon = IconSlot.ADD)
+        SectionLabel("${templates.size} template(s)")
+        LazyColumn(Modifier.fillMaxSize(), verticalArrangement = Arrangement.spacedBy(2.dp)) {
             items(templates, key = { it.id }) { t ->
-                val selected = ws.templateEditor?.id == t.id
-                Column(
-                    Modifier.fillMaxWidth()
-                        .background(if (selected) MaterialTheme.colorScheme.secondaryContainer else MaterialTheme.colorScheme.surface)
-                        .clickable { ws.openTemplate(t.id) }
-                        .padding(horizontal = 8.dp, vertical = 6.dp),
-                ) {
-                    Text(t.name, style = MaterialTheme.typography.bodyLarge, maxLines = 1)
-                    Text(
-                        EntityType.fromKey(t.entity_type).label + if (t.is_builtin) " · built-in" else "",
-                        style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.outline,
-                    )
-                }
+                ListRow(
+                    t.name, { ws.openTemplate(t.id) },
+                    secondary = EntityType.fromKey(t.entity_type).label + if (t.is_builtin) " · built-in" else "",
+                    selected = ws.templateEditor?.id == t.id,
+                )
             }
         }
     }
-    VerticalDivider()
 
-    Box(Modifier.fillMaxSize()) {
-        when (val ed = ws.templateEditor) {
-            null -> Text(
-                "Select a template, or create a new one.",
-                Modifier.align(Alignment.Center), style = MaterialTheme.typography.bodyLarge,
-            )
-            else -> TemplateEditor(ed, onDelete = ws::deleteOpenTemplate)
-        }
-    }
+    ContentArea("Select a template, or create a new one.", ws.templateEditor?.let { ed ->
+        { TemplateEditor(ed, onDelete = ws::deleteOpenTemplate) }
+    })
 }
 
 /** Everything soft-deleted in this world. Restore clears the tombstone; nothing is ever purged. */
@@ -328,7 +264,7 @@ private fun TrashSection(ws: WorkspaceState) {
     val templates by ws.trashTemplates.collectAsState(initial = emptyList())
     val empty = entities.isEmpty() && works.isEmpty() && chapters.isEmpty() && events.isEmpty() && templates.isEmpty()
 
-    LazyColumn(Modifier.fillMaxSize().padding(16.dp)) {
+    LazyColumn(Modifier.fillMaxSize().background(MaterialTheme.colorScheme.surface).padding(16.dp)) {
         item { Text("Trash", style = MaterialTheme.typography.headlineSmall, modifier = Modifier.padding(bottom = 4.dp)) }
         item {
             Text(
@@ -362,74 +298,46 @@ private fun <T> androidx.compose.foundation.lazy.LazyListScope.trashGroup(
             Text(name(t), style = MaterialTheme.typography.bodyLarge)
             Text(subtitle(t), style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.outline)
             Spacer(Modifier.weight(1f))
-            TextButton(onClick = { restore(key(t)) }) { Text("Restore") }
+            GButton("Restore", { restore(key(t)) }, kind = ButtonKind.QUIET)
         }
     }
 }
 
-@OptIn(ExperimentalMaterial3Api::class)
 @Composable
 private fun SourceFilterRow(ws: WorkspaceState) {
     val sources by ws.sourceList.collectAsState(initial = emptyList())
-    var open by remember { mutableStateOf(false) }
     val label = when (val f = ws.sourceFilter) {
         null -> "All sources"
         SourceFilter.Wiki -> "Wiki imports"
         is SourceFilter.User -> f.label
     }
 
-    Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(4.dp)) {
-        ExposedDropdownMenuBox(expanded = open, onExpandedChange = { open = it }, modifier = Modifier.weight(1f)) {
-            OutlinedTextField(
-                value = label, onValueChange = {}, readOnly = true, singleLine = true,
-                label = { Text("Source") },
-                trailingIcon = { ExposedDropdownMenuDefaults.TrailingIcon(open) },
-                modifier = Modifier.fillMaxWidth().menuAnchor(ExposedDropdownMenuAnchorType.PrimaryNotEditable),
-            )
-            ExposedDropdownMenu(expanded = open, onDismissRequest = { open = false }) {
-                DropdownMenuItem(text = { Text("All sources") }, onClick = { ws.filterBySource(null); open = false })
-                DropdownMenuItem(text = { Text("Wiki imports") }, onClick = { ws.filterBySource(SourceFilter.Wiki); open = false })
-                sources.forEach { s ->
-                    DropdownMenuItem(
-                        text = { Text(s.label) },
-                        onClick = { ws.filterBySource(SourceFilter.User(s.id, s.label)); open = false },
-                    )
-                }
+    Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.Bottom, horizontalArrangement = Arrangement.spacedBy(4.dp)) {
+        GSelect(label, Modifier.weight(1f), label = "Source") { close ->
+            DropdownMenuItem(text = { Text("All sources") }, onClick = { ws.filterBySource(null); close() })
+            DropdownMenuItem(text = { Text("Wiki imports") }, onClick = { ws.filterBySource(SourceFilter.Wiki); close() })
+            sources.forEach { s ->
+                DropdownMenuItem(text = { Text(s.label) }, onClick = { ws.filterBySource(SourceFilter.User(s.id, s.label)); close() })
             }
         }
-        TextButton(onClick = ws::openSources) { Text("Manage") }
+        GButton("Manage", ws::openSources, kind = ButtonKind.QUIET)
     }
 }
 
 /** Pick which of the world's calendars the timeline shows; new names create new calendars. */
-@OptIn(ExperimentalMaterial3Api::class)
 @Composable
 private fun CalendarPicker(ws: WorkspaceState) {
     val known by ws.calendarList.collectAsState(initial = emptyList())
     val calendars = (known + ws.calendar + "default").distinct().sorted()
-    var open by remember { mutableStateOf(false) }
     var newName by remember { mutableStateOf("") }
 
     Column(verticalArrangement = Arrangement.spacedBy(6.dp)) {
-        ExposedDropdownMenuBox(expanded = open, onExpandedChange = { open = it }) {
-            OutlinedTextField(
-                value = ws.calendar, onValueChange = {}, readOnly = true, singleLine = true,
-                label = { Text("Calendar") },
-                trailingIcon = { ExposedDropdownMenuDefaults.TrailingIcon(open) },
-                modifier = Modifier.fillMaxWidth().menuAnchor(ExposedDropdownMenuAnchorType.PrimaryNotEditable),
-            )
-            ExposedDropdownMenu(expanded = open, onDismissRequest = { open = false }) {
-                calendars.forEach { c ->
-                    DropdownMenuItem(text = { Text(c) }, onClick = { ws.selectCalendar(c); open = false })
-                }
-            }
+        GSelect(ws.calendar, Modifier.fillMaxWidth(), label = "Calendar") { close ->
+            calendars.forEach { c -> DropdownMenuItem(text = { Text(c) }, onClick = { ws.selectCalendar(c); close() }) }
         }
         Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(4.dp)) {
-            OutlinedTextField(
-                newName, { newName = it },
-                label = { Text("New calendar") }, singleLine = true, modifier = Modifier.weight(1f),
-            )
-            TextButton(enabled = newName.isNotBlank(), onClick = { ws.selectCalendar(newName); newName = "" }) { Text("Go") }
+            GField(newName, { newName = it }, Modifier.weight(1f), placeholder = "New calendar")
+            GButton("Go", { ws.selectCalendar(newName); newName = "" }, kind = ButtonKind.QUIET, enabled = newName.isNotBlank())
         }
     }
 }

@@ -104,7 +104,7 @@ class WorkspaceScreenTest {
         assertEquals(listOf("Rivertown"), names)
 
         rule.onNode(hasSetTextAction() and hasText("Search all entities")).performTextInput("river")
-        rule.waitUntilAtLeastOneExists(hasText("1 result(s)"), 5_000)
+        rule.waitUntilAtLeastOneExists(hasText("1 RESULT(S)"), 5_000)
         rule.onNodeWithText("Location").assertIsDisplayed() // type shown as subtitle in search results
     }
 
@@ -441,6 +441,32 @@ class WorkspaceScreenTest {
 
         rule.waitUntil(5_000) { session.workspace?.workEditor?.chapterEditor?.textConvo == null }
         assertEquals(body, session.workspace?.workEditor?.chapterEditor?.body)
+    }
+
+    @Test
+    fun `sidebar groups sections and navigates`() {
+        val w = runBlocking { worlds.create("Arda") }
+        session.openWorld(w)
+        rule.setContent { App(session) }
+
+        rule.onNodeWithTag("sidebar").assertExists()
+        listOf("WORLD", "WRITING", "MANAGE").forEach { rule.onNodeWithText(it).assertExists() }
+        rule.onNodeWithTag("nav-timeline").performClick()
+        rule.waitUntil(5_000) { session.workspace?.section == WorkspaceSection.TIMELINE }
+        rule.onNodeWithTag("nav-characters").performClick()
+        rule.waitUntil(5_000) { session.workspace?.section == WorkspaceSection.ENTITIES }
+    }
+
+    @Test
+    fun `theme row in the sidebar switches the palette`() {
+        val w = runBlocking { worlds.create("Arda") }
+        session.openWorld(w)
+        rule.setContent { App(session) }
+
+        rule.onNodeWithTag("nav-theme").performClick()
+        rule.waitUntilAtLeastOneExists(hasText("Forest") and hasClickAction(), 5_000)
+        rule.onNode(hasText("Forest") and hasClickAction()).performClick()
+        rule.waitUntil(5_000) { session.theme == dev.grimoire.ui.AppTheme.FOREST }
     }
 
     @Test

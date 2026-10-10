@@ -15,6 +15,10 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.graphics.Color
 import dev.grimoire.ui.design.GrimoireColors
+import dev.grimoire.ui.design.IconSlot
+import dev.grimoire.ui.design.NavRow
+import androidx.compose.ui.Modifier
+import androidx.compose.ui.platform.testTag
 
 /**
  * Curated color themes. [key] is what `settings.json` stores; the schemes are full Material3
@@ -104,6 +108,23 @@ enum class AppTheme(
 
     companion object {
         fun fromKey(key: String?): AppTheme = entries.firstOrNull { it.key == key } ?: GRIMOIRE
+    }
+}
+
+/** Sidebar theme picker: a nav row that opens the palette list. */
+@Composable
+fun ThemeNavRow(session: Session) {
+    var open by remember { mutableStateOf(false) }
+    Box {
+        NavRow(
+            "Theme: ${session.theme.label}", icon = IconSlot.SETTINGS, selected = false, onClick = { open = true },
+            modifier = Modifier.testTag("nav-theme"),
+        )
+        DropdownMenu(expanded = open, onDismissRequest = { open = false }) {
+            AppTheme.entries.forEach { t ->
+                DropdownMenuItem(text = { Text(t.label) }, onClick = { session.selectTheme(t); open = false })
+            }
+        }
     }
 }
 

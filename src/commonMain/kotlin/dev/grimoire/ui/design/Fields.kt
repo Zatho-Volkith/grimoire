@@ -2,6 +2,12 @@ package dev.grimoire.ui.design
 
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
+import androidx.compose.foundation.clickable
+import androidx.compose.foundation.layout.ColumnScope
+import androidx.compose.material3.DropdownMenu
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.setValue
+import androidx.compose.ui.semantics.Role
 import androidx.compose.foundation.interaction.MutableInteractionSource
 import androidx.compose.foundation.interaction.collectIsFocusedAsState
 import androidx.compose.foundation.layout.Arrangement
@@ -81,6 +87,28 @@ fun GField(
             interactionSource = interaction,
             decorationBox = { field -> FieldDecoration(value.text.isEmpty(), placeholder ?: label, interaction, trailing, field) },
         )
+    }
+}
+
+/**
+ * A read-only [GField] that opens [menu] on click — the kit's dropdown. [menu] gets a `close` callback
+ * to call after a choice.
+ */
+@Composable
+fun GSelect(
+    value: String,
+    modifier: Modifier = Modifier,
+    label: String? = null,
+    menu: @Composable ColumnScope.(close: () -> Unit) -> Unit,
+) {
+    var open by remember { mutableStateOf(false) }
+    Box(modifier) {
+        GField(
+            value, {}, readOnly = true, label = label,
+            trailing = { Text("▾", color = MaterialTheme.grimoire.muted, style = MaterialTheme.typography.bodyMedium) },
+        )
+        Box(Modifier.matchParentSize().clickable(role = Role.DropdownList) { open = true })
+        DropdownMenu(expanded = open, onDismissRequest = { open = false }) { menu { open = false } }
     }
 }
 
