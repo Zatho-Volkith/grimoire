@@ -93,9 +93,11 @@ compose.desktop {
                 shortcut = true
                 // Stable across releases so a newer MSI upgrades an older install in place.
                 upgradeUuid = "69e2a6ee-3ab2-4907-9f4c-c005a2014847"
+                iconFile.set(project.file("packaging/grimoire-icon.ico"))
             }
             macOS {
                 packageVersion = installerVersion // applies to the .app bundle AND the dmg
+                iconFile.set(project.file("packaging/grimoire-icon.icns"))
             }
             linux {
                 iconFile.set(project.file("packaging/grimoire-icon.png"))

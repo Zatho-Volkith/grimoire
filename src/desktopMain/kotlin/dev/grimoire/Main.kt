@@ -1,5 +1,8 @@
 package dev.grimoire
 
+import androidx.compose.ui.graphics.painter.BitmapPainter
+import androidx.compose.ui.graphics.painter.Painter
+import androidx.compose.ui.graphics.toComposeImageBitmap
 import androidx.compose.ui.window.Window
 import androidx.compose.ui.window.application
 import androidx.compose.ui.window.rememberWindowState
@@ -42,6 +45,12 @@ private fun appVersion(): String =
 /** Held for the life of the process; top-level, so it is never collected (which would release it). */
 private var instanceLock: FileLock? = null
 
+/** Title-bar / taskbar icon; null (the platform default) if the resource is missing. */
+private fun windowIcon(): Painter? = runCatching {
+    val bytes = checkNotNull(object {}.javaClass.getResourceAsStream("/grimoire-icon.png")).use { it.readBytes() }
+    BitmapPainter(org.jetbrains.skia.Image.makeFromEncoded(bytes).toComposeImageBitmap())
+}.getOrNull()
+
 fun main() {
     instanceLock = InstanceLock.acquire(DriverFactory.appDataDir())
     if (instanceLock == null) {
@@ -76,6 +85,7 @@ fun main() {
     SyncService(db, ids, clock, wiki, status = syncStatus).start(scope)
     val fonts = DesktopFonts.load()
     val icons = DesktopIcons()
+    val appIcon = windowIcon()
 
     var closing = false
     application {
@@ -93,6 +103,7 @@ fun main() {
                 }
             },
             title = "Grimoire",
+            icon = appIcon,
             state = rememberWindowState(size = DpSize(1200.dp, 800.dp)),
             onPreviewKeyEvent = { handleShortcut(session, it) },
         ) {
