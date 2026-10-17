@@ -73,14 +73,19 @@ class VariantEditorState(
     private suspend fun save() {
         if (!dirty) return
         dirty = false
-        withContext(NonCancellable) {
-            repo.updateContent(
-                id = id,
-                nameOverride = nameOverride.ifBlank { null },
-                summaryOverride = summaryOverride.ifBlank { null },
-                bodyOverride = bodyOverride.ifBlank { null },
-                attributePatch = patch,
-            )
+        try {
+            withContext(NonCancellable) {
+                repo.updateContent(
+                    id = id,
+                    nameOverride = nameOverride.ifBlank { null },
+                    summaryOverride = summaryOverride.ifBlank { null },
+                    bodyOverride = bodyOverride.ifBlank { null },
+                    attributePatch = patch,
+                )
+            }
+        } catch (e: Throwable) {
+            dirty = true // still unsaved: the next edit or flush retries it
+            throw e
         }
     }
 }

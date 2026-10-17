@@ -27,14 +27,14 @@ class PersistenceTest {
         return driver to db
     }
 
-    private fun GrimoireDatabase.entity(id: String, name: String, body: String?) = grimoireQueries.upsertEntity(
+    private fun GrimoireDatabase.entity(id: String, name: String, body: String?) = grimoireQueries.insertEntity(
         id = id, world_id = "w", source_id = "s", template_id = null, type = "character",
         name = name, aliases = "[]", summary = null, body = body, image_path = null, color = null,
         attributes = "{}", canon_snapshot = null, created_at = 1, updated_at = 1,
     )
 
     private fun GrimoireDatabase.search(term: String) =
-        grimoireQueries.searchEntities(term, "w").executeAsList().map { it.name }.toSet()
+        grimoireQueries.searchEntities(term, "w", null, 0L).executeAsList().map { it.name }.toSet()
 
     @Test
     fun `world survives closing and reopening the database file`() = runBlocking {
@@ -69,7 +69,7 @@ class PersistenceTest {
 
         val db = GrimoireDatabase(driver)
         assertFailsWith<Exception>("dangling world_id must be rejected") {
-            db.grimoireQueries.upsertEntity(
+            db.grimoireQueries.insertEntity(
                 ids.next(), "no-such-world", "no-such-source", null, "character", "Ghost", "[]",
                 null, null, null, null, "{}", null, 1, 1,
             )
@@ -83,8 +83,8 @@ class PersistenceTest {
         db.entity("e2", "Rin", "a scholar")
         assertEquals(setOf("Kaede"), db.search("swordswoman"))
 
-        // upsert's ON CONFLICT path is an UPDATE → AFTER UPDATE trigger
-        db.entity("e2", "Rin", "a scholar of swordswoman lore")
+        // the editor's save path is an UPDATE → AFTER UPDATE trigger
+        db.grimoireQueries.updateEntityContent("Rin", "[]", null, "a scholar of swordswoman lore", null, "{}", 2, "e2")
         assertEquals(setOf("Kaede", "Rin"), db.search("swordswoman"))
 
         // soft delete keeps the row indexed but the query filters it

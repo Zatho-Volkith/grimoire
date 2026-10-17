@@ -107,6 +107,7 @@ class EntityEditorState(
     var workOptions: Flow<List<Work>> = flowOf(emptyList()); private set
 
     private var saveJob: Job? = null
+    private val pending = PendingWork(scope)
 
     suspend fun load() {
         val e = repo.entity(id).first() ?: return
@@ -150,6 +151,7 @@ class EntityEditorState(
                             "Canon updated"
                         }
                         WikiConnector.RefreshResult.UNCHANGED -> "Canon up to date"
+                        WikiConnector.RefreshResult.PAGE_MISSING -> "Page is no longer on the wiki — keeping the last canon"
                         WikiConnector.RefreshResult.NOT_WIKI_SOURCED -> null
                     }
                 },
@@ -195,7 +197,7 @@ class EntityEditorState(
         val previous = variantEditor
         val next = VariantEditorState(variantId, variantsRepo, attributes, scope)
         variantEditor = next
-        scope.launch {
+        pending.launch {
             previous?.flush()
             next.load()
         }
@@ -204,7 +206,7 @@ class EntityEditorState(
     fun closeVariant() {
         val previous = variantEditor ?: return
         variantEditor = null
-        scope.launch { previous.flush() }
+        pending.launch { previous.flush() }
     }
 
     /** Creates a variant scoped to [workId] (or, with null, to [continuityKey]) and opens it. */
@@ -335,6 +337,7 @@ class EntityEditorState(
 
     /** Persists pending edits now. Safe to call when nothing is dirty. */
     suspend fun flush() {
+        pending.join()
         variantEditor?.flush()
         // Cancels a save still waiting out its delay; waits for one already writing (the write
         // itself is NonCancellable, so cancelling mid-write can't drop the edit that cleared `dirty`).
@@ -345,16 +348,21 @@ class EntityEditorState(
     private suspend fun save() {
         if (!dirty) return
         dirty = false
-        withContext(NonCancellable) {
-            repo.updateContent(
-                id = id,
-                name = name.trim().ifEmpty { "Untitled" },
-                aliases = aliasesText.split(',').map { it.trim() }.filter { it.isNotEmpty() },
-                summary = summary.ifBlank { null },
-                body = body.ifBlank { null },
-                templateId = templateId,
-                attributes = attributes.filterValues { it.isNotBlank() },
-            )
+        try {
+            withContext(NonCancellable) {
+                repo.updateContent(
+                    id = id,
+                    name = name.trim().ifEmpty { "Untitled" },
+                    aliases = aliasesText.split(',').map { it.trim() }.filter { it.isNotEmpty() },
+                    summary = summary.ifBlank { null },
+                    body = body.ifBlank { null },
+                    templateId = templateId,
+                    attributes = attributes.filterValues { it.isNotBlank() },
+                )
+            }
+        } catch (e: Throwable) {
+            dirty = true // still unsaved: the next edit or flush retries it
+            throw e
         }
     }
 

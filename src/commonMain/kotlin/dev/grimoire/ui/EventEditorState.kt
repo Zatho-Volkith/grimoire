@@ -103,14 +103,19 @@ class EventEditorState(
     private suspend fun save() {
         if (!dirty) return
         dirty = false
-        withContext(NonCancellable) {
-            repo.updateEvent(
-                id = id,
-                title = title.trim().ifEmpty { "Untitled event" },
-                description = description.ifBlank { null },
-                displayDate = displayDate.ifBlank { null },
-                era = era.ifBlank { null },
-            )
+        try {
+            withContext(NonCancellable) {
+                repo.updateEvent(
+                    id = id,
+                    title = title.trim().ifEmpty { "Untitled event" },
+                    description = description.ifBlank { null },
+                    displayDate = displayDate.ifBlank { null },
+                    era = era.ifBlank { null },
+                )
+            }
+        } catch (e: Throwable) {
+            dirty = true // still unsaved: the next edit or flush retries it
+            throw e
         }
     }
 }

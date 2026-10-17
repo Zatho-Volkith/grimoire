@@ -142,6 +142,11 @@ class ChapterEditorState(
     private suspend fun save() {
         if (!dirty) return
         dirty = false
-        withContext(NonCancellable) { repo.updateChapter(id, title, body) }
+        try {
+            withContext(NonCancellable) { repo.updateChapter(id, title, body) }
+        } catch (e: Throwable) {
+            dirty = true // still unsaved: the next edit or flush retries it
+            throw e
+        }
     }
 }

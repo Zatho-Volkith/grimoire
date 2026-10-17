@@ -54,4 +54,20 @@ class WorkspaceStateTest {
         await { runBlocking { session.works.chapter(c1).first() }?.body == "She left at dawn." }
         assertEquals(4L, runBlocking { session.works.chapter(c1).first() }!!.word_count)
     }
+
+    @Test
+    fun `session flush waits for the save of an editor that was just replaced`() {
+        session.openWorld(runBlocking { session.worlds.create("Arda") })
+        val ws = session.workspace!!
+        val kaede = runBlocking { session.entities.create(ws.worldId, EntityType.CHARACTER, "Kaede") }
+        val rin = runBlocking { session.entities.create(ws.worldId, EntityType.CHARACTER, "Rin") }
+
+        ws.open(kaede)
+        await { ws.editor?.loaded == true }
+        ws.editor!!.editName("Kaede the Exile")
+        ws.open(rin) // Kaede's save now runs in the background...
+        runBlocking { session.flush() } // ...and quitting right now must still wait for it.
+
+        assertEquals("Kaede the Exile", runBlocking { session.entities.entity(kaede).first() }!!.name)
+    }
 }

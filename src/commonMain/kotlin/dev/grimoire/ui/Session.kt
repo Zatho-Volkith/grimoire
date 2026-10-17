@@ -39,7 +39,12 @@ class Session(
     private val updates: UpdateChecker,
     private val updateLauncher: UpdateLauncher,
     private val scope: CoroutineScope,
+    /** Background failures the user should see; Main feeds it from the scope's exception handler. */
+    val problems: Problems = Problems(),
 ) {
+    /** Flushes of worlds already closed; [flush] waits for them. */
+    private val pending = PendingWork(scope)
+
     val appVersion: String get() = updates.currentVersion
 
     var workspace by mutableStateOf<WorkspaceState?>(null); private set
@@ -51,7 +56,7 @@ class Session(
     fun closeWorld() {
         val ws = workspace ?: return
         workspace = null
-        scope.launch { ws.flush() }
+        pending.launch { ws.flush() }
     }
 
     fun createWorld(name: String) {
@@ -115,7 +120,10 @@ class Session(
     fun saveNow() { scope.launch { flush() } }
 
     /** Call before the process exits so a pending debounced save is not lost. */
-    suspend fun flush() { workspace?.flush() }
+    suspend fun flush() {
+        pending.join()
+        workspace?.flush()
+    }
 }
 
 /** Where the manual update check stands. Only ever advanced by user action. */

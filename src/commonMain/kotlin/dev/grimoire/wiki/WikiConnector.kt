@@ -42,7 +42,7 @@ class WikiConnector(
                     revision = page.revisionId.toString(), fetched_at = now, cached_payload = page.rawResponse,
                     created_at = now, updated_at = now,
                 )
-                q.upsertEntity(
+                q.insertEntity(
                     id = entityId, world_id = worldId, source_id = sourceId, template_id = null,
                     type = type.key, name = canon.name, aliases = "[]",
                     summary = canon.summary, body = canon.body, image_path = null, color = null,
@@ -54,7 +54,8 @@ class WikiConnector(
             entityId
         }
 
-    enum class RefreshResult { UPDATED, UNCHANGED, NOT_WIKI_SOURCED }
+    /** [PAGE_MISSING]: the wiki no longer has the page; canon is kept as last fetched. */
+    enum class RefreshResult { UPDATED, UNCHANGED, PAGE_MISSING, NOT_WIKI_SOURCED }
 
     /** Re-fetches the entity's page. Only `canon_snapshot` and the source row change — never user text. */
     suspend fun refresh(entityId: String): RefreshResult = withContext(Dispatchers.IO) {
@@ -65,14 +66,16 @@ class WikiConnector(
             return@withContext RefreshResult.NOT_WIKI_SOURCED
         }
         val host = source.remote_url.removePrefix("https://").substringBefore('/')
-        val page = api.fetchPage(host, source.remote_id) ?: error("Page “${source.remote_id}” vanished from $host")
+        val page = api.fetchPage(host, source.remote_id)
         val now = clock()
-        if (page.revisionId.toString() == source.revision) {
+        // Unchanged or gone: just record the check, so the page waits a full day like any other
+        // instead of failing (and retrying) forever.
+        if (page == null || page.revisionId.toString() == source.revision) {
             q.updateSourceFetch(
                 revision = source.revision, fetched_at = now, cached_payload = source.cached_payload,
                 updated_at = now, id = source.id,
             )
-            return@withContext RefreshResult.UNCHANGED
+            return@withContext if (page == null) RefreshResult.PAGE_MISSING else RefreshResult.UNCHANGED
         }
         val canon = canonOf(page)
         db.transaction {

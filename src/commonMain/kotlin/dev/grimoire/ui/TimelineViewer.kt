@@ -48,8 +48,10 @@ fun TimelineViewer(ws: WorkspaceState) {
     val events by ws.eventList.collectAsState(initial = emptyList())
     val participants by ws.eventParticipants.collectAsState(initial = emptyMap())
 
-    val topLevel = events.filter { it.parent_id == null }
-    val children = events.filter { it.parent_id != null }.groupBy { it.parent_id!! }
+    // A sub-event whose parent is trashed (not in the list) stands on its own rather than vanishing.
+    val ids = events.map { it.id }.toSet()
+    val (topLevel, nested) = events.partition { it.parent_id == null || it.parent_id !in ids }
+    val children = nested.groupBy { it.parent_id!! }
 
     if (topLevel.isEmpty()) {
         Box(Modifier.fillMaxSize()) {

@@ -109,8 +109,13 @@ class TemplateEditorState(
     private suspend fun save() {
         if (!dirty) return
         dirty = false
-        withContext(NonCancellable) {
-            repo.update(id, name.trim().ifEmpty { "Untitled template" }, fields.map { it.copy(group = it.group?.trim()?.ifEmpty { null }) }, bodyScaffold.ifBlank { null })
+        try {
+            withContext(NonCancellable) {
+                repo.update(id, name.trim().ifEmpty { "Untitled template" }, fields.map { it.copy(group = it.group?.trim()?.ifEmpty { null }) }, bodyScaffold.ifBlank { null })
+            }
+        } catch (e: Throwable) {
+            dirty = true // still unsaved: the next edit or flush retries it
+            throw e
         }
     }
 }

@@ -64,4 +64,21 @@ class SourceFilterTest {
         ws.filterBySource(SourceFilter.Wiki)
         await { runBlocking { ws.items.first() }.map { it.id } == listOf(imported) }
     }
+
+    @Test
+    fun `search applies the source filter before its 50-hit cap`() = runBlocking {
+        session.openWorld(session.worlds.create("Arda"))
+        val ws = session.workspace!!
+        val w = ws.worldId
+        val mine = session.entities.createSource(w, "Headcanon")
+        repeat(60) { session.entities.create(w, EntityType.CHARACTER, "Dragon $it") }
+        // Matches only deep in a long body, so it ranks below all 60 name hits.
+        val kept = session.entities.create(w, EntityType.CHARACTER, "Keeper")
+        session.entities.updateContent(kept, "Keeper", emptyList(), null, "words ".repeat(200) + "dragon", null, emptyMap())
+        session.entities.setSource(kept, mine)
+
+        ws.filterBySource(SourceFilter.User(mine, "Headcanon"))
+        ws.searchFor("dragon")
+        await { runBlocking { ws.items.first() }.map { it.id } == listOf(kept) }
+    }
 }

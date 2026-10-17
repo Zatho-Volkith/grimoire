@@ -58,10 +58,13 @@ class EntityRepository(
         q.setEntitySource(source_id = sourceId, updated_at = clock(), id = entityId)
     }
 
-    /** Live FTS over name/aliases/summary/body. Empty or whitespace-only [text] yields no results. */
-    fun search(worldId: String, text: String): Flow<List<Entity>> {
+    /**
+     * Live FTS over name/aliases/summary/body. Empty or whitespace-only [text] yields no results.
+     * [sourceId] narrows to one source, [wikiOnly] to wiki imports — both applied before the hit cap.
+     */
+    fun search(worldId: String, text: String, sourceId: String? = null, wikiOnly: Boolean = false): Flow<List<Entity>> {
         val match = ftsQuery(text) ?: return flowOf(emptyList())
-        return q.searchEntities(match, worldId).asFlow().mapToList(Dispatchers.IO)
+        return q.searchEntities(match, worldId, sourceId, if (wikiOnly) 1L else 0L).asFlow().mapToList(Dispatchers.IO)
     }
 
     /** Creates a blank entity of [type] under the world's user-authored source. Returns its id. */
@@ -69,7 +72,7 @@ class EntityRepository(
         val source = q.defaultSourceForWorld(worldId).executeAsOne()
         val now = clock()
         val id = ids.next()
-        q.upsertEntity(
+        q.insertEntity(
             id = id, world_id = worldId, source_id = source.id, template_id = null, type = type.key,
             name = name, aliases = "[]", summary = null, body = null, image_path = null, color = null,
             attributes = "{}", canon_snapshot = null, created_at = now, updated_at = now,

@@ -78,6 +78,9 @@ class WorkspaceState(
     /** Bumped by [focusSearch]; the screen observes it to move focus into the search field. */
     var focusSearchTick by mutableStateOf(0); private set
 
+    /** Saves of editors already closed or replaced; [flush] waits for them. */
+    private val pending = PendingWork(scope)
+
     /** The world's named user sources ("My notes", "Fandom consensus", …). Live. */
     val sourceList: Flow<List<Source>> = entities.userSources(worldId)
 
@@ -87,7 +90,11 @@ class WorkspaceState(
         snapshotFlow { Triple(type, search, sourceFilter) }
             .debounce { (_, q, _) -> if (q.isBlank()) 0L else 150L }
             .flatMapLatest { (t, q, filter) ->
-                val base = if (q.isBlank()) entities.byType(worldId, t) else entities.search(worldId, q)
+                // Search filters in SQL (before its hit cap); the type list is uncapped, so it filters here.
+                if (q.isNotBlank()) return@flatMapLatest entities.search(
+                    worldId, q, sourceId = (filter as? SourceFilter.User)?.id, wikiOnly = filter == SourceFilter.Wiki,
+                )
+                val base = entities.byType(worldId, t)
                 when (filter) {
                     null -> base
                     is SourceFilter.User -> base.map { list -> list.filter { it.source_id == filter.id } }
@@ -153,9 +160,9 @@ class WorkspaceState(
     fun closeCurrent() {
         when (section) {
             WorkspaceSection.ENTITIES -> close()
-            WorkspaceSection.WORKS -> { val p = workEditor ?: return; workEditor = null; scope.launch { p.flush() } }
-            WorkspaceSection.TIMELINE -> { val p = eventEditor ?: return; eventEditor = null; scope.launch { p.flush() } }
-            WorkspaceSection.TEMPLATES -> { val p = templateEditor ?: return; templateEditor = null; scope.launch { p.flush() } }
+            WorkspaceSection.WORKS -> { val p = workEditor ?: return; workEditor = null; pending.launch { p.flush() } }
+            WorkspaceSection.TIMELINE -> { val p = eventEditor ?: return; eventEditor = null; pending.launch { p.flush() } }
+            WorkspaceSection.TEMPLATES -> { val p = templateEditor ?: return; templateEditor = null; pending.launch { p.flush() } }
             WorkspaceSection.TRASH -> Unit
         }
     }
@@ -172,7 +179,7 @@ class WorkspaceState(
         val previous = editor
         val next = EntityEditorState(id, entities, relationships, templates, works, variants, wiki, scope)
         editor = next
-        scope.launch {
+        pending.launch {
             previous?.flush()
             next.load()
         }
@@ -181,7 +188,7 @@ class WorkspaceState(
     fun close() {
         val previous = editor ?: return
         editor = null
-        scope.launch { previous.flush() }
+        pending.launch { previous.flush() }
     }
 
     fun createEntity() {
@@ -214,7 +221,7 @@ class WorkspaceState(
         val previous = workEditor
         val next = WorkEditorState(id, works, entities, scope, chapterId)
         workEditor = next
-        scope.launch {
+        pending.launch {
             previous?.flush()
             next.load()
         }
@@ -237,7 +244,7 @@ class WorkspaceState(
         val previous = eventEditor
         val next = EventEditorState(id, timeline, entities, scope)
         eventEditor = next
-        scope.launch {
+        pending.launch {
             previous?.flush()
             next.load()
         }
@@ -276,7 +283,7 @@ class WorkspaceState(
         val previous = templateEditor
         val next = TemplateEditorState(id, worldId, templates, scope)
         templateEditor = next
-        scope.launch {
+        pending.launch {
             previous?.flush()
             next.load()
         }
@@ -304,6 +311,7 @@ class WorkspaceState(
     }
 
     suspend fun flush() {
+        pending.join()
         editor?.flush()
         workEditor?.flush()
         eventEditor?.flush()

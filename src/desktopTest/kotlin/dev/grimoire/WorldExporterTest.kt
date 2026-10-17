@@ -1,5 +1,6 @@
 package dev.grimoire
 
+import dev.grimoire.variant.VariantRepository
 import dev.grimoire.db.GrimoireDatabase
 import dev.grimoire.entity.EntityRepository
 import dev.grimoire.entity.EntityType
@@ -207,5 +208,36 @@ class WorldExporterTest {
         val text = exporter.export(w).content("Locations", "Town.md")
         assertTrue("Located in:" !in text, text)
         assertTrue("[[" !in text, text)
+    }
+
+    @Test
+    fun `variants export as a section of their entity`() = runTest {
+        val w = worlds.create("Arda")
+        val sheet = templates.create(w, EntityType.CHARACTER, "Sheet")
+        templates.update(sheet, "Sheet", listOf(TemplateField("age", "Age")), null)
+        val kaede = entities.create(w, EntityType.CHARACTER, "Kaede")
+        entities.updateContent(kaede, "Kaede", emptyList(), null, null, sheet, mapOf("age" to "27"))
+        val fic = works.create(w, "The Long Road")
+        val variants = VariantRepository(db, ids) { 1L }
+        val v = variants.create(kaede, fic, null)!!
+        variants.updateContent(v, "Kaede the Exile", null, "She never left the village.", mapOf("age" to "40"))
+        val au = variants.create(kaede, null, "Modern AU")!!
+        variants.updateContent(au, null, "A barista.", null, emptyMap())
+
+        val file = exporter.export(w).content("Characters", "Kaede.md")
+        assertTrue("## Variants" in file)
+        assertTrue("### In The Long Road" in file && "Name: Kaede the Exile" in file, file)
+        assertTrue("- Age: 40" in file && "She never left the village." in file, file)
+        assertTrue("### Continuity: Modern AU" in file && "A barista." in file, file)
+    }
+
+    @Test
+    fun `timelines whose names sanitize alike get distinct files`() = runTest {
+        val w = worlds.create("Arda")
+        timeline.create(w, "Dawn", "Story/order")
+        timeline.create(w, "Dusk", "Story order")
+
+        val names = exporter.export(w).map { it.path.single() }.filter { it.startsWith("Timeline") }
+        assertEquals(setOf("Timeline - Story order.md", "Timeline - Story order 2.md"), names.toSet())
     }
 }

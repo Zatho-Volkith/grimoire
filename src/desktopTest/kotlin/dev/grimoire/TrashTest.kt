@@ -91,4 +91,33 @@ class TrashTest {
         assertEquals(listOf("Sheet"), templates.forWorld(w).first().map { it.name })
         assertTrue(works.deletedWorks(w).first().isEmpty() && timeline.deleted(w).first().isEmpty() && templates.deleted(w).first().isEmpty())
     }
+
+    @Test
+    fun `a deleted shared built-in template shows in every world's trash and restores`() = runTest {
+        dev.grimoire.template.BuiltinTemplates.seed(db, ids) { 1L }
+        val w = worlds.create("Arda")
+        val other = worlds.create("Elsewhere")
+        val sheet = templates.byBuiltinKey("character")!!
+
+        templates.softDelete(sheet.id)
+        assertTrue(templates.forWorld(other).first().none { it.id == sheet.id }, "shared: gone everywhere")
+        assertTrue(templates.deleted(w).first().any { it.id == sheet.id }, "but restorable from the trash")
+
+        templates.restore(sheet.id)
+        assertTrue(templates.forWorld(other).first().any { it.id == sheet.id })
+    }
+
+    @Test
+    fun `restoring a chapter of a trashed work brings the work back too`() = runTest {
+        val w = worlds.create("Arda")
+        val work = works.create(w, "Fic")
+        val c1 = works.chapters(work).first().single().id
+
+        works.softDeleteChapter(c1)
+        works.softDeleteWork(work)
+        works.restoreChapter(c1)
+
+        assertEquals(listOf("Fic"), works.forWorld(w).first().map { it.title })
+        assertEquals(listOf(c1), works.chapters(work).first().map { it.id })
+    }
 }

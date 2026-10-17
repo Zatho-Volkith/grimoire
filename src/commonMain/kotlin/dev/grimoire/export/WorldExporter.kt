@@ -5,6 +5,7 @@ import dev.grimoire.db.Entity
 import dev.grimoire.db.GrimoireDatabase
 import dev.grimoire.db.RelationshipsForWorld
 import dev.grimoire.db.Timeline_event
+import dev.grimoire.db.VariantsForWorld
 import dev.grimoire.db.Work
 import dev.grimoire.entity.EntityType
 import dev.grimoire.json.JsonStringMap
@@ -31,7 +32,8 @@ import kotlinx.coroutines.withContext
  * ```
  *
  * Entity aliases and attributes become YAML frontmatter (`aliases` is native Obsidian);
- * relationships and event participants become `[[wikilinks]]`. Entity file names are unique
+ * relationships and event participants become `[[wikilinks]]`; per-work and per-continuity
+ * variants become a section of their entity's file. Entity file names are unique
  * across the whole vault so every wikilink resolves unambiguously; chapter bodies are already
  * Markdown and export verbatim.
  */
@@ -50,6 +52,7 @@ class WorldExporter(private val db: GrimoireDatabase) {
         val templateFields = templateRows.associate { it.id to TemplateFields.decode(it.fields) }
         val builtinKeys = templateRows.associate { it.id to it.builtin_key }
         val entitiesById = entities.associateBy { it.id }
+        val variants = q.variantsForWorld(worldId).executeAsList().groupBy { it.entity_id }
 
         val usedNames = mutableSetOf<String>()
         val names = entities.associate { it.id to VaultNames.uniquify(VaultNames.sanitize(it.name), usedNames) }
@@ -60,7 +63,9 @@ class WorldExporter(private val db: GrimoireDatabase) {
             entities.forEach { e ->
                 val folder = EntityType.fromKey(e.type).plural
                 val fields = e.template_id?.let { templateFields[it] }.orEmpty()
-                add(ExportFile(listOf(folder, "${names.getValue(e.id)}.md"), entityFile(e, fields, relationships, names, entitiesById, builtinKeys)))
+                val body = entityFile(e, fields, relationships, names, entitiesById, builtinKeys) +
+                    variantsSection(variants[e.id].orEmpty(), fields)
+                add(ExportFile(listOf(folder, "${names.getValue(e.id)}.md"), body))
             }
 
             val usedWorkFolders = mutableSetOf<String>()
@@ -72,12 +77,15 @@ class WorldExporter(private val db: GrimoireDatabase) {
                 }
             }
 
+            // Distinct calendar keys can sanitize to the same name ("a/b", "a b"): uniquify, never overwrite.
+            val usedTimelineNames = mutableSetOf<String>()
             calendars.forEach { calendarKey ->
                 val events = q.timelineForWorld(worldId, calendarKey).executeAsList()
                 if (events.isNotEmpty()) {
-                    val fileName =
-                        if (calendarKey == TimelineRepository.CALENDAR) "Timeline.md"
-                        else "Timeline - ${VaultNames.sanitize(calendarKey)}.md"
+                    val base =
+                        if (calendarKey == TimelineRepository.CALENDAR) "Timeline"
+                        else "Timeline - ${VaultNames.sanitize(calendarKey)}"
+                    val fileName = VaultNames.uniquify(base, usedTimelineNames) + ".md"
                     add(ExportFile(listOf(fileName), timelineFile(calendarKey, events, participants, names)))
                 }
             }
@@ -148,6 +156,26 @@ class WorldExporter(private val db: GrimoireDatabase) {
                 val other = names.getValue(if (outgoing) r.to_entity else r.from_entity)
                 appendLine("- $label [[$other]]")
             }
+        }
+    }
+
+    /** "## Variants": each scope's overrides; blank overrides inherit, so they're left out. */
+    private fun variantsSection(variants: List<VariantsForWorld>, fields: List<TemplateField>): String = buildString {
+        if (variants.isEmpty()) return@buildString
+        val labels = fields.associate { it.key to it.label }
+        appendLine()
+        appendLine("## Variants")
+        variants.forEach { v ->
+            appendLine()
+            appendLine(if (v.work_id != null) "### In ${v.work_title ?: "an untitled work"}" else "### Continuity: ${v.continuity_key}")
+            v.name_override?.let { appendLine(); appendLine("Name: $it") }
+            v.summary_override?.let { appendLine(); appendLine(it) }
+            val patch = JsonStringMap.decode(v.attribute_patch)
+            if (patch.isNotEmpty()) {
+                appendLine()
+                patch.forEach { (k, value) -> appendLine("- ${labels[k] ?: k}: $value") }
+            }
+            v.body_override?.let { appendLine(); appendLine(it) }
         }
     }
 

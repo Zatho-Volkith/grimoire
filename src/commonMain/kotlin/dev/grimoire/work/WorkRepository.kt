@@ -144,8 +144,12 @@ class WorkRepository(
         q.restoreWork(updated_at = clock(), id = id)
     }
 
-    /** The chapter returns at its original sort_position (positions are never reused). */
+    /** The chapter returns at its original sort_position (positions are never reused), with its work if that was trashed too. */
     suspend fun restoreChapter(id: String) = withContext(Dispatchers.IO) {
-        q.restoreChapter(updated_at = clock(), id = id)
+        val now = clock()
+        db.transaction {
+            q.restoreChapter(updated_at = now, id = id)
+            q.restoreWorkOfChapter(updated_at = now, id = id)
+        }
     }
 }

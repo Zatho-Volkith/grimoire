@@ -430,29 +430,24 @@ ORDER BY name;
 entityById:
 SELECT * FROM entity WHERE id = ?;
 
+-- Optional source filters run in SQL, before the LIMIT, so filtering can't hide hits:
+-- :sourceId narrows to one source; :wikiOnly = 1 keeps everything not user-authored.
 searchEntities:
 SELECT e.* FROM entity e
 JOIN entity_fts f ON f.rowid = e.rowid
-WHERE entity_fts MATCH ? AND e.world_id = ? AND e.deleted_at IS NULL
+JOIN source s ON s.id = e.source_id
+WHERE entity_fts MATCH :match AND e.world_id = :worldId AND e.deleted_at IS NULL
+  AND (:sourceId IS NULL OR e.source_id = :sourceId)
+  AND (:wikiOnly = 0 OR s.kind <> 'user_authored')
 ORDER BY rank
 LIMIT 50;
 
-upsertEntity:
+insertEntity:
 INSERT INTO entity (
     id, world_id, source_id, template_id, type,
     name, aliases, summary, body, image_path, color,
     attributes, canon_snapshot, created_at, updated_at
-) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
-ON CONFLICT(id) DO UPDATE SET
-    name        = excluded.name,
-    aliases     = excluded.aliases,
-    summary     = excluded.summary,
-    body        = excluded.body,
-    image_path  = excluded.image_path,
-    color       = excluded.color,
-    attributes  = excluded.attributes,
-    template_id = excluded.template_id,
-    updated_at  = excluded.updated_at;
+) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?);
 
 -- Editor save path: only the editor-owned columns.
 updateEntityContent:
@@ -522,14 +517,6 @@ timelineForWorld:
 SELECT * FROM timeline_event
 WHERE world_id = ? AND calendar_key = ? AND deleted_at IS NULL
 ORDER BY sort_position;
-
-
-staleWikiSources:
-SELECT * FROM source
-WHERE kind = 'fandom_wiki'
-  AND deleted_at IS NULL
-  AND (fetched_at IS NULL OR fetched_at < ?)
-ORDER BY fetched_at ASC;
 
 
 enqueueSync:
@@ -716,14 +703,20 @@ ORDER BY c.deleted_at DESC;
 restoreChapter:
 UPDATE chapter SET deleted_at = NULL, updated_at = ? WHERE id = ?;
 
+-- A restored chapter brings back its trashed work too, or it would restore into nowhere.
+restoreWorkOfChapter:
+UPDATE work SET deleted_at = NULL, updated_at = ?
+WHERE deleted_at IS NOT NULL AND id = (SELECT work_id FROM chapter WHERE id = ?);
+
 deletedEventsForWorld:
 SELECT * FROM timeline_event WHERE world_id = ? AND deleted_at IS NOT NULL ORDER BY deleted_at DESC;
 
 restoreEvent:
 UPDATE timeline_event SET deleted_at = NULL, updated_at = ? WHERE id = ?;
 
+-- Shared built-ins (world_id NULL) too: deleting one from any world must be undoable from its trash.
 deletedTemplatesForWorld:
-SELECT * FROM template WHERE world_id = ? AND deleted_at IS NOT NULL ORDER BY deleted_at DESC;
+SELECT * FROM template WHERE (world_id = ? OR world_id IS NULL) AND deleted_at IS NOT NULL ORDER BY deleted_at DESC;
 
 restoreTemplate:
 UPDATE template SET deleted_at = NULL, updated_at = ? WHERE id = ?;
@@ -818,7 +811,8 @@ UPDATE entity SET canon_snapshot = ?, updated_at = ? WHERE id = ?;
 entitiesWithStaleWikiSources:
 SELECT e.id FROM entity e
 JOIN source s ON s.id = e.source_id
-WHERE s.kind = 'fandom_wiki' AND e.deleted_at IS NULL AND s.deleted_at IS NULL
+JOIN world w ON w.id = e.world_id
+WHERE s.kind = 'fandom_wiki' AND e.deleted_at IS NULL AND s.deleted_at IS NULL AND w.deleted_at IS NULL
   AND (s.fetched_at IS NULL OR s.fetched_at < ?);
 
 syncItemPending:
@@ -854,6 +848,15 @@ calendarsForWorld:
 SELECT DISTINCT calendar_key FROM timeline_event
 WHERE world_id = ? AND deleted_at IS NULL
 ORDER BY calendar_key;
+
+-- Live variants of live entities, for export. A variant of a trashed work still exports (titled).
+variantsForWorld:
+SELECT v.*, w.title AS work_title
+FROM variant v
+JOIN entity e ON e.id = v.entity_id
+LEFT JOIN work w ON w.id = v.work_id
+WHERE e.world_id = ? AND v.deleted_at IS NULL AND e.deleted_at IS NULL
+ORDER BY v.created_at;
 
 participantNamesForWorld:
 SELECT p.event_id, p.entity_id, p.role, e.name

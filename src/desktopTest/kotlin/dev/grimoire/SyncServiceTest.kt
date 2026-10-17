@@ -106,4 +106,25 @@ class SyncServiceTest {
         assertEquals(0, sync.drainPending(), "refresh reports NOT_WIKI_SOURCED")
         assertEquals(0L, queueSize(), "the dead item is discarded")
     }
+
+    @Test
+    fun `trashed worlds are not refreshed`() = runTest {
+        val id = importedEntity()
+        val world = entities.entity(id).first()!!.world_id
+        worlds.softDelete(world)
+        now += 25 * hour
+        assertEquals(0, sync.enqueueStaleRefreshes())
+    }
+
+    @Test
+    fun `a page gone from the wiki is checked again tomorrow, not retried forever`() = runTest {
+        importedEntity()
+        now += 25 * hour
+        sync.enqueueStaleRefreshes()
+
+        served = """{"batchcomplete":true,"query":{"pages":[{"ns":0,"title":"Teleportation","missing":true}]}}"""
+        assertEquals(0, sync.drainPending())
+        assertEquals(0L, queueSize(), "settled, not backing off")
+        assertEquals(0, sync.enqueueStaleRefreshes(), "the check reset the staleness clock")
+    }
 }

@@ -39,6 +39,7 @@ class WorkEditorState(
     val chapters: Flow<List<Chapter>> = repo.chapters(id)
 
     private var saveJob: Job? = null
+    private val pending = PendingWork(scope)
 
     suspend fun load() {
         val w = repo.work(id).first() ?: return
@@ -62,7 +63,7 @@ class WorkEditorState(
         val previous = chapterEditor
         val next = ChapterEditorState(chapterId, repo, entities, worldId, scope)
         chapterEditor = next
-        scope.launch {
+        pending.launch {
             previous?.flush()
             next.load()
         }
@@ -85,6 +86,7 @@ class WorkEditorState(
     }
 
     suspend fun flush() {
+        pending.join()
         chapterEditor?.flush()
         saveJob?.cancelAndJoin()
         save()
@@ -100,8 +102,13 @@ class WorkEditorState(
     private suspend fun save() {
         if (!dirty) return
         dirty = false
-        withContext(NonCancellable) {
-            repo.updateWork(id, title.trim().ifEmpty { "Untitled" }, summary.ifBlank { null }, status)
+        try {
+            withContext(NonCancellable) {
+                repo.updateWork(id, title.trim().ifEmpty { "Untitled" }, summary.ifBlank { null }, status)
+            }
+        } catch (e: Throwable) {
+            dirty = true // still unsaved: the next edit or flush retries it
+            throw e
         }
     }
 }

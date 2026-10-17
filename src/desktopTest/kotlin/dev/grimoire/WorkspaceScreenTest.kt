@@ -128,7 +128,8 @@ class WorkspaceScreenTest {
         rule.waitUntilAtLeastOneExists(hasText("Rin") and hasText("Character") and hasClickAction(), 5_000)
         rule.onNode(hasText("Rin") and hasText("Character") and hasClickAction()).performClick()
         rule.onNodeWithText("Add").performClick()
-        rule.waitUntilAtLeastOneExists(hasText("knows"), 5_000)
+        // Not hasText("knows"): the kind picker shows that by default, so it would match at once.
+        rule.waitUntilAtLeastOneExists(hasTestTag("relationship-link") and hasText("Rin"), 5_000)
 
         val fromRin = runBlocking { relationships.forEntity(rin).first() }.single()
         assertEquals("known by", fromRin.shown_label)
@@ -728,5 +729,34 @@ class WorkspaceScreenTest {
 
         rule.onNode(hasTestTag("viewer-subevent")).performClick()
         rule.waitUntil(5_000) { session.workspace?.eventEditor?.id == sub && session.workspace?.timelineView == false }
+    }
+
+    @Test
+    fun `sub-events of a trashed parent still show in the viewer`() {
+        val w = runBlocking { worlds.create("Arda") }
+        val big = runBlocking { timeline.create(w, "The war") }
+        val sub = runBlocking { timeline.create(w, "The first skirmish") }
+        runBlocking {
+            timeline.setParent(sub, big)
+            timeline.softDelete(big)
+        }
+        session.openWorld(w)
+        rule.setContent { App(session) }
+
+        rule.onNodeWithText("Timeline").performClick()
+        rule.onNodeWithText("View timeline").performClick()
+        rule.waitUntilAtLeastOneExists(hasTestTag("viewer-event"), 5_000)
+        rule.onNode(hasTestTag("viewer-event")).assertTextContains("The first skirmish", substring = true)
+    }
+
+    @Test
+    fun `a background failure shows a dismissible banner`() {
+        rule.setContent { App(session) }
+        session.problems.report(IllegalStateException("disk full"))
+
+        rule.onNodeWithTag("problem-banner").assertIsDisplayed()
+        rule.onNodeWithText("disk full", substring = true).assertIsDisplayed()
+        rule.onNodeWithText("Dismiss").performClick()
+        rule.onAllNodesWithTag("problem-banner").assertCountEquals(0)
     }
 }
